@@ -1,0 +1,102 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0a0a0a;
+  --card: #171717;
+  --border: #27272a;
+  --foreground: #fafafa;
+  --muted: #a1a1aa;
+  --primary: #4ffab0;
+  --primary-hover: #44e5a9;
+  --success: #4ffab0;
+  --danger: #ef4444;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-success: var(--success);
+  --color-danger: var(--danger);
+
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+
+  --radius: 0.75rem;
+}
+
+*,
+*::before,
+*::after {
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Founder Session animations ──────────────────────────────────────────── */
+@keyframes fs-shimmer {
+  0%   { opacity: 0.35; }
+  50%  { opacity: 0.85; }
+  100% { opacity: 0.35; }
+}
+
+@keyframes fs-cursor {
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes fs-pulse-dot {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%       { transform: scale(1.3); opacity: 0.4; }
+}
+
+@keyframes fs-edge-travel {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -120; }
+}
+
+@keyframes fs-ripple {
+  0%   { r: 0;  opacity: 0.18; }
+  80%  { r: 38; opacity: 0.04; }
+  100% { r: 48; opacity: 0; }
+}
+
+@keyframes fs-latent-breath {
+  0%, 100% { opacity: 0.08; }
+  50%       { opacity: 0.22; }
+}
+
+@keyframes fs-opp-reveal {
+  from { opacity: 0; }
+  to   { opacity: 0.10; }
+}
+
+@keyframes fs-opportunity-aura {
+  0%, 100% { opacity: 0.08; }
+  50%       { opacity: 0.20; }
+}
+
+/* ── Workspace canvas animations ─────────────────────────────────────────── */
+@keyframes ws-flow {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: -28; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
