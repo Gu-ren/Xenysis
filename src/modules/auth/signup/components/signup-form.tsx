@@ -23,7 +23,7 @@ export function SignupForm() {
   const [password, setPassword] = useState('');
   const [succeeding, setSucceeding] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSucceeding(true);
   };
