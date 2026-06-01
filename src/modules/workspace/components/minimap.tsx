@@ -35,7 +35,7 @@ export function Minimap({ assets, positions, panX, panY, zoom, viewW, viewH, onP
   return (
     <div
       onClick={handleClick}
-      className="absolute bottom-14 right-4 border border-primary/20 rounded-xl overflow-hidden cursor-crosshair z-20"
+      className="absolute bottom-4 right-4 border border-primary/20 rounded-xl overflow-hidden cursor-crosshair z-20"
       style={{
         width: MAP_W,
         height: MAP_H,

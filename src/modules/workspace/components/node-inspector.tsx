@@ -161,7 +161,9 @@ export function NodeInspector({ asset, graph, startupId, onClose, onSelectAsset 
           {asset.nodeType === 'page' && (
             <div className="shrink-0 px-3 py-2.5 border-t border-border">
               <Link
-                href={`/preview/${startupId}?screen=${asset.id}`}
+                href={`/p/${startupId}?screen=${asset.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-xs font-semibold transition-colors border"
                 style={{
                   background: colors.bg,

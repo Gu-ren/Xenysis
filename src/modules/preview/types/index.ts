@@ -1,6 +1,6 @@
 import type { WorkspaceAsset } from '@/modules/workspace/types'
 
-export type DeviceMode = 'desktop' | 'mobile'
+export type DeviceMode = 'desktop' | 'tablet' | 'mobile'
 
 // A navigation target resolved from a navigates-to connector.
 export interface NavigationTarget {

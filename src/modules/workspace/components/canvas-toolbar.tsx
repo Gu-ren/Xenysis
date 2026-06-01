@@ -11,7 +11,7 @@ interface CanvasToolbarProps {
 export function CanvasToolbar({ zoom, onZoomIn, onZoomOut, onFitView, onReset }: CanvasToolbarProps) {
   return (
     <div
-      className="absolute bottom-[124px] right-4 flex flex-col items-center gap-px z-20 rounded-xl border border-border overflow-hidden"
+      className="absolute bottom-[132px] right-4 flex flex-col items-center gap-px z-20 rounded-xl border border-border overflow-hidden"
       style={{ background: 'rgba(10,10,10,0.92)', backdropFilter: 'blur(16px)' }}
     >
       <ToolbarBtn onClick={onZoomIn} title="Zoom in (⌘ +)">

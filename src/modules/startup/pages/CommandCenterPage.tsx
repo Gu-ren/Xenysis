@@ -203,7 +203,9 @@ export default function CommandCenterPage() {
                 Deploy to Production
               </Link>
               <Link
-                href={`/preview/${startupId}`}
+                href={`/p/${startupId}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-full text-center px-3 py-2 rounded-[10px] text-xs border border-border text-foreground hover:bg-background transition-colors"
               >
                 Preview Build

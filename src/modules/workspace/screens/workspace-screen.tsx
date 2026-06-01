@@ -1,16 +1,27 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Image from 'next/image'
+import { useReducedMotion } from 'framer-motion'
 import { WorkspaceModeBar } from '../components/workspace-mode-bar'
 import { StartupProgressPanel } from '../components/startup-progress-panel'
 import { StartupPreviewPanel } from '../components/startup-preview-panel'
 import { CopilotPanel } from '../components/copilot-panel'
 import { ArchitectureScreen } from './architecture-screen'
+import {
+  SkeletonModeBar,
+  SkeletonLeft,
+  SkeletonCenter,
+  SkeletonRight,
+  SkeletonZone,
+} from '@/components/workspace/skeleton-workspace'
 import { getWorkspaceGraph } from '../services/workspace'
 import { useStartupStore } from '@/store/startup'
 import type { WorkspaceGraph } from '../types'
 import type { WorkspaceMode } from '../components/workspace-mode-bar'
+
+// Phase at which each zone transitions from skeleton → real content
+// 0 = all skeletons | 1 = header real | 2 = left real | 3 = center real | 4 = right real
+const REVEAL_DELAYS_MS = [150, 400, 650, 900] // header, left, center, right
 
 interface WorkspaceScreenProps {
   startupId: string
@@ -18,80 +29,89 @@ interface WorkspaceScreenProps {
 }
 
 export function WorkspaceScreen({ startupId, initialAssetId }: WorkspaceScreenProps) {
-  const [graph, setGraph]   = useState<WorkspaceGraph | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [mode, setMode]     = useState<WorkspaceMode>('startup')
+  const reduced = useReducedMotion()
+  const [graph, setGraph] = useState<WorkspaceGraph | null>(null)
+  const [dataReady, setDataReady] = useState(false)
+  const [revealPhase, setRevealPhase] = useState(0)
+  const [mode, setMode] = useState<WorkspaceMode>('startup')
 
   const storeStartupId = useStartupStore((s) => s.startupId)
-  const storeGraph     = useStartupStore((s) => s.graph)
+  const storeGraph = useStartupStore((s) => s.graph)
 
+  // Load data
   useEffect(() => {
     if (storeStartupId === startupId && storeGraph) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGraph(storeGraph)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setLoading(false)
+      setDataReady(true)
       return
     }
     getWorkspaceGraph(startupId).then((g) => {
       setGraph(g)
-      setLoading(false)
+      setDataReady(true)
     })
   }, [startupId, storeStartupId, storeGraph])
 
-  if (loading) return <WorkspaceLoader />
+  // Staggered reveal: fire one phase per delay once data is ready
+  useEffect(() => {
+    if (!dataReady) return
+    if (reduced) { setRevealPhase(4); return }
+
+    const timers = REVEAL_DELAYS_MS.map((delay, i) =>
+      setTimeout(() => setRevealPhase(i + 1), delay),
+    )
+    return () => timers.forEach(clearTimeout)
+  }, [dataReady, reduced])
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      {/* Workspace OS bar — mode toggle + deploy/preview links */}
-      <WorkspaceModeBar
-        mode={mode}
-        startupId={startupId}
-        onModeChange={setMode}
-      />
+      {/* ── Header zone ────────────────────────────────────────────────────── */}
+      <SkeletonZone
+        show={revealPhase >= 1}
+        skeleton={<SkeletonModeBar />}
+        className="shrink-0"
+        style={{ height: 36 }}
+      >
+        <WorkspaceModeBar mode={mode} startupId={startupId} onModeChange={setMode} />
+      </SkeletonZone>
 
-      {/* Mode: Architecture — full-screen canvas, manages its own state */}
+      {/* ── Architecture mode ───────────────────────────────────────────────── */}
       {mode === 'architecture' && (
         <ArchitectureScreen startupId={startupId} initialAssetId={initialAssetId} />
       )}
 
-      {/* Mode: Startup (default) — 3-panel layout */}
+      {/* ── Startup mode — 3 panel zones ────────────────────────────────────── */}
       {mode === 'startup' && (
         <div className="flex flex-1 min-h-0 overflow-hidden">
-          {/* Left: Startup Progress */}
-          <StartupProgressPanel graph={graph} />
+          {/* Left zone */}
+          <SkeletonZone
+            show={revealPhase >= 2}
+            skeleton={<SkeletonLeft />}
+            className="shrink-0 h-full"
+            style={{ width: 220 }}
+          >
+            <StartupProgressPanel graph={graph} />
+          </SkeletonZone>
 
-          {/* Center: Interactive startup preview */}
-          <StartupPreviewPanel
-            graph={graph}
-            initialAssetId={initialAssetId}
-          />
+          {/* Center zone */}
+          <SkeletonZone
+            show={revealPhase >= 3}
+            skeleton={<SkeletonCenter />}
+            className="flex-1 min-w-0 h-full"
+          >
+            <StartupPreviewPanel graph={graph} initialAssetId={initialAssetId} />
+          </SkeletonZone>
 
-          {/* Right: AI Copilot */}
-          <CopilotPanel graph={graph} />
+          {/* Right zone */}
+          <SkeletonZone
+            show={revealPhase >= 4}
+            skeleton={<SkeletonRight />}
+            className="shrink-0 h-full"
+            style={{ width: 300 }}
+          >
+            <CopilotPanel graph={graph} />
+          </SkeletonZone>
         </div>
       )}
-    </div>
-  )
-}
-
-function WorkspaceLoader() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 bg-background">
-      <div className="w-8 h-8 flex items-center justify-center">
-        <Image
-          src="/logo.svg"
-          alt="Xenysis"
-          width={28}
-          height={28}
-          className="rounded-sm"
-          style={{ animation: 'fs-shimmer 1.5s ease-in-out infinite' }}
-        />
-      </div>
-      <div className="flex flex-col items-center gap-1">
-        <p className="text-sm font-medium text-foreground">Loading workspace</p>
-        <p className="text-xs text-muted font-mono">Assembling your startup…</p>
-      </div>
     </div>
   )
 }

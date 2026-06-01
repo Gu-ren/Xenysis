@@ -44,7 +44,9 @@ export function WorkspaceModeBar({ mode, startupId, onModeChange }: WorkspaceMod
       {/* Right: actions */}
       <div className="flex items-center gap-1.5">
         <Link
-          href={`/preview/${startupId}`}
+          href={`/p/${startupId}`}
+          target="_blank"
+          rel="noopener noreferrer"
           className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-medium text-muted hover:text-foreground hover:bg-card border border-transparent hover:border-border transition-colors"
         >
           <ExternalLink size={10} strokeWidth={2} />
