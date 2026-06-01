@@ -141,26 +141,7 @@ export function MarketingNav() {
           >
             Sign In
           </Link>
-          <Link
-            href="/signup?intent=founder-session"
-            className="font-sans font-medium text-[13px] rounded-full px-4 py-1.5 transition-colors duration-200"
-            style={{
-              letterSpacing: "-0.01em",
-              color: "#ffffff",
-              backgroundColor: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.12)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.1)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.22)";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "rgba(255,255,255,0.05)";
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-            }}
-          >
-            Start Building
-          </Link>
+          
         </div>
       </motion.nav>
 
@@ -249,23 +230,7 @@ export function MarketingNav() {
           >
             Sign In
           </Link>
-          <Link
-            href="/signup?intent=founder-session"
-            className="font-sans font-medium text-[13px] rounded-full px-4 py-1.5 transition-colors duration-200"
-            style={{
-              letterSpacing: "-0.01em",
-              backgroundColor: "#4ffab0",
-              color: "#111111",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = "#44E5A9";
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = "#4ffab0";
-            }}
-          >
-            Start Building
-          </Link>
+          
         </div>
       </motion.nav>
     </div>
