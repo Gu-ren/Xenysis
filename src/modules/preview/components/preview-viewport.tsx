@@ -62,7 +62,6 @@ export function PreviewViewport({ screen, deviceMode, direction, navigatesTo, on
         className="flex-1 flex items-center justify-center overflow-hidden"
         style={{ background: '#050505' }}
       >
-        {/* Mobile device frame */}
         <div
           className="relative flex flex-col overflow-hidden"
           style={{
@@ -82,7 +81,6 @@ export function PreviewViewport({ screen, deviceMode, direction, navigatesTo, on
             />
           </div>
 
-          {/* Screen content — animated inside frame */}
           <div className="flex-1 overflow-hidden relative">
             {canvas}
           </div>
@@ -91,6 +89,27 @@ export function PreviewViewport({ screen, deviceMode, direction, navigatesTo, on
           <div className="flex justify-center pb-2 pt-1 shrink-0">
             <div className="rounded-full" style={{ width: 100, height: 4, background: 'rgba(255,255,255,0.2)' }} />
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (deviceMode === 'tablet') {
+    return (
+      <div
+        className="flex-1 flex items-center justify-center overflow-hidden"
+        style={{ background: '#050505' }}
+      >
+        <div
+          className="relative flex flex-col overflow-hidden h-full"
+          style={{
+            width: 834,
+            maxWidth: '100%',
+            borderLeft: '1px solid rgba(255,255,255,0.08)',
+            borderRight: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          {canvas}
         </div>
       </div>
     )

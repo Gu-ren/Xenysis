@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import Image from 'next/image'
 import { useStartupStore } from '@/store/startup'
 import { useFounderSessionStore } from '@/store/founder-session'
@@ -10,7 +10,7 @@ import { useStartupJourney } from '../hooks/use-startup-journey'
 import { useSimulationState } from '../hooks/use-simulation-state'
 import { PreviewShell } from '../components/preview-shell'
 import { SimulationBar } from '../components/simulation-bar'
-import { ScreenNavigator } from '../components/screen-navigator'
+import { BrowserBar } from '../components/browser-bar'
 import { PreviewViewport } from '../components/preview-viewport'
 import type { WorkspaceGraph } from '@/modules/workspace/types'
 import type { DeviceMode, NavigationTarget } from '../types'
@@ -26,19 +26,20 @@ function formatStartupName(id: string): string {
 
 function getNavLabel(assetType: string): string {
   switch (assetType) {
-    case 'auth':     return 'Get Started →'
-    case 'core':     return 'Open Dashboard →'
-    case 'billing':  return 'View Pricing →'
-    case 'settings': return 'Open Settings →'
+    case 'auth':      return 'Get Started →'
+    case 'core':      return 'Open Dashboard →'
+    case 'billing':   return 'View Pricing →'
+    case 'settings':  return 'Open Settings →'
     case 'marketing': return 'Back to Home →'
     default:          return 'Continue →'
   }
 }
 
 export function PreviewStartupScreen({ startupId, initialScreenId }: PreviewStartupScreenProps) {
-  const [graph, setGraph] = useState<WorkspaceGraph | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [deviceMode, setDeviceMode] = useState<DeviceMode>('desktop')
+  const [graph, setGraph]               = useState<WorkspaceGraph | null>(null)
+  const [loading, setLoading]           = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [deviceMode, setDeviceMode]     = useState<DeviceMode>('desktop')
 
   const storeStartupId   = useStartupStore((s) => s.startupId)
   const storeGraph       = useStartupStore((s) => s.graph)
@@ -59,7 +60,6 @@ export function PreviewStartupScreen({ startupId, initialScreenId }: PreviewStar
     })
   }, [startupId, storeStartupId, storeGraph])
 
-  // Generate startup-specific preview context from graph + founder session data
   const ctx = useMemo(() => {
     if (!graph) return null
     return generateStartupContext(graph, {
@@ -72,8 +72,6 @@ export function PreviewStartupScreen({ startupId, initialScreenId }: PreviewStar
   const journey    = useStartupJourney(graph)
   const simulation = useSimulationState()
 
-  // Init simulation once journey is ready.
-  // Respects deep-linked initialScreenId if present, otherwise uses first BFS screen.
   useEffect(() => {
     if (journey.screens.length === 0) return
     const firstId = (initialScreenId && journey.screenMap.has(initialScreenId))
@@ -84,7 +82,6 @@ export function PreviewStartupScreen({ startupId, initialScreenId }: PreviewStar
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [journey])
 
-  // Derive navigation targets for the current screen from the graph.
   const navigatesTo = useMemo<NavigationTarget[]>(() => {
     if (!simulation.currentId) return []
     const screen = journey.screenMap.get(simulation.currentId)
@@ -100,7 +97,6 @@ export function PreviewStartupScreen({ startupId, initialScreenId }: PreviewStar
     })
   }, [simulation.currentId, journey])
 
-  // Breadcrumb: resolve screen titles from history for SimulationBar.
   const breadcrumb = useMemo(() => {
     return simulation.history.map((id) => ({
       id,
@@ -113,14 +109,26 @@ export function PreviewStartupScreen({ startupId, initialScreenId }: PreviewStar
     : null
 
   const startupName = formatStartupName(startupId)
+  const domain      = ctx?.domain ?? `${startupId}.app`
+  const route       = selectedScreen?.asset.route ?? '/'
+
+  const handleRefresh = useCallback(() => {
+    setIsRefreshing(true)
+    setTimeout(() => setIsRefreshing(false), 600)
+  }, [])
 
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-4 bg-background">
-        <div
-          className="w-8 h-8 flex items-center justify-center"
-        >
-          <Image src="/logo.svg" alt="Xenysis" width={28} height={28} className="rounded-sm" style={{ animation: 'fs-shimmer 1.5s ease-in-out infinite' }} />
+        <div className="w-8 h-8 flex items-center justify-center">
+          <Image
+            src="/logo.svg"
+            alt="Xenysis"
+            width={28}
+            height={28}
+            className="rounded-sm"
+            style={{ animation: 'fs-shimmer 1.5s ease-in-out infinite' }}
+          />
         </div>
         <div className="flex flex-col items-center gap-1">
           <p className="text-sm font-medium text-foreground">Loading startup preview</p>
@@ -144,22 +152,20 @@ export function PreviewStartupScreen({ startupId, initialScreenId }: PreviewStar
         onBack={simulation.goBack}
         onReset={simulation.reset}
       />
-      <div className="flex flex-1 min-h-0">
-        <ScreenNavigator
-          journey={journey}
-          selectedId={simulation.currentId}
-          visitedIds={simulation.visitedIds}
-          onSelect={simulation.navigateTo}
-        />
-        <PreviewViewport
-          screen={selectedScreen}
-          deviceMode={deviceMode}
-          direction={simulation.direction}
-          navigatesTo={navigatesTo}
-          onNavigate={simulation.navigateTo}
-          ctx={ctx}
-        />
-      </div>
+      <BrowserBar
+        domain={domain}
+        route={route}
+        isLoading={isRefreshing}
+        onRefresh={handleRefresh}
+      />
+      <PreviewViewport
+        screen={selectedScreen}
+        deviceMode={deviceMode}
+        direction={simulation.direction}
+        navigatesTo={navigatesTo}
+        onNavigate={simulation.navigateTo}
+        ctx={ctx}
+      />
     </div>
   )
 }

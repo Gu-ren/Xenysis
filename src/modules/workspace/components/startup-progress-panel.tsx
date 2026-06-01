@@ -121,7 +121,7 @@ export function StartupProgressPanel({ graph }: StartupProgressPanelProps) {
       {/* Readiness scores */}
       <div className="px-4 py-3 border-t border-border shrink-0 flex flex-col gap-2.5">
         <ReadinessBar label="Launch Ready" pct={launchReadiness} />
-        <ReadinessBar label="Revenue Ready" pct={revenueReadiness} />
+      
       </div>
     </aside>
   )

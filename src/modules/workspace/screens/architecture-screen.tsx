@@ -40,19 +40,6 @@ const VIEW_MODE_ZONES: Record<ViewMode, Set<string>> = {
   system:       new Set(['user-flow', 'application', 'data', 'services', 'integrations', 'automations']),
 }
 
-// ── Type filter chips ─────────────────────────────────────────────────────────
-
-type CanvasFilter = 'all' | NodeType
-
-const FILTER_CHIPS: { id: CanvasFilter; label: string }[] = [
-  { id: 'all',         label: 'All' },
-  { id: 'page',        label: 'Pages' },
-  { id: 'system',      label: 'Services' },
-  { id: 'database',    label: 'Data' },
-  { id: 'workflow',    label: 'Workflows' },
-  { id: 'integration', label: 'Integrations' },
-]
-
 // ── Component ─────────────────────────────────────────────────────────────────
 
 interface ArchitectureScreenProps {
@@ -64,7 +51,6 @@ export function ArchitectureScreen({ startupId, initialAssetId }: ArchitectureSc
   const [graph, setGraph] = useState<WorkspaceGraph | null>(null)
   const [loading, setLoading] = useState(true)
   const [viewMode, setViewMode] = useState<ViewMode>('system')
-  const [activeFilter, setActiveFilter] = useState<CanvasFilter>('all')
   const containerRef = useRef<HTMLDivElement>(null)
   const [viewSize, setViewSize] = useState({ w: 1200, h: 800 })
   const hasInitialSelected = useRef(false)
@@ -137,15 +123,6 @@ export function ArchitectureScreen({ startupId, initialAssetId }: ArchitectureSc
   const generated = assets.filter((a) => a.status === 'generated').length
   const needsConfig = assets.filter((a) => a.status === 'needs-config').length
 
-  const filterCounts: Partial<Record<CanvasFilter, number>> = {
-    all: assets.filter((a) => visibleTypes.has(a.nodeType)).length,
-    page: assets.filter((a) => a.nodeType === 'page').length,
-    system: assets.filter((a) => a.nodeType === 'system').length,
-    database: assets.filter((a) => a.nodeType === 'database').length,
-    workflow: assets.filter((a) => a.nodeType === 'workflow').length,
-    integration: assets.filter((a) => a.nodeType === 'integration').length,
-  }
-
   return (
     <div className="relative flex flex-col h-full overflow-hidden bg-background">
       {/* Status bar */}
@@ -187,7 +164,7 @@ export function ArchitectureScreen({ startupId, initialAssetId }: ArchitectureSc
             <button
               key={id}
               title={description}
-              onClick={() => { setViewMode(id); setActiveFilter('all') }}
+              onClick={() => setViewMode(id)}
               className={cn(
                 'px-2.5 py-1 text-[10px] font-mono font-semibold transition-colors',
                 viewMode === id
@@ -200,33 +177,6 @@ export function ArchitectureScreen({ startupId, initialAssetId }: ArchitectureSc
           ))}
         </div>
 
-        <div className="w-px h-4 bg-border shrink-0" />
-
-        {FILTER_CHIPS.map(({ id, label }) => {
-          const count = filterCounts[id] ?? 0
-          if (id !== 'all' && !visibleTypes.has(id as NodeType)) return null
-          if (id !== 'all' && count === 0) return null
-          const isActive = activeFilter === id
-          return (
-            <button
-              key={id}
-              onClick={() => setActiveFilter(id)}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[10px] font-mono font-semibold transition-colors',
-                isActive
-                  ? 'bg-primary/10 text-primary border border-primary/25'
-                  : 'text-muted hover:text-foreground hover:bg-card border border-transparent',
-              )}
-            >
-              {label}
-              {id !== 'all' && (
-                <span className={cn('text-[9px] font-mono tabular-nums', isActive ? 'text-primary/70' : 'text-muted/50')}>
-                  {count}
-                </span>
-              )}
-            </button>
-          )
-        })}
       </div>
 
       {/* Canvas */}
@@ -275,8 +225,7 @@ export function ArchitectureScreen({ startupId, initialAssetId }: ArchitectureSc
             const isSelected   = selection.selectedId === asset.id
             const isConnected  = connectedIds.has(asset.id)
             const hiddenByMode = !visibleTypes.has(asset.nodeType)
-            const hiddenByChip = activeFilter !== 'all' && asset.nodeType !== (activeFilter as NodeType)
-            const isDimmed = hiddenByMode || hiddenByChip ||
+            const isDimmed = hiddenByMode ||
               (selection.selectedId !== null && !isSelected && !isConnected)
             const direction = outgoingIds.has(asset.id)
               ? 'outgoing' as const

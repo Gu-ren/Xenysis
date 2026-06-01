@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Monitor, Smartphone } from 'lucide-react'
+import { ArrowLeft, Monitor, Tablet, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { DeviceMode } from '../types'
 
@@ -13,7 +13,8 @@ interface PreviewShellProps {
 }
 
 const DEVICE_BUTTONS = [
-  { mode: 'desktop' as DeviceMode, Icon: Monitor  },
+  { mode: 'desktop' as DeviceMode, Icon: Monitor    },
+  { mode: 'tablet'  as DeviceMode, Icon: Tablet     },
   { mode: 'mobile'  as DeviceMode, Icon: Smartphone },
 ] as const
 
@@ -31,7 +32,9 @@ export function PreviewShell({ startupId, startupName, deviceMode, onDeviceModeC
       <div className="flex items-center gap-2">
         <div className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
         <span className="text-xs font-semibold text-foreground">{startupName}</span>
-        <span className="text-[9px] font-mono text-muted/40 tracking-widest uppercase ml-0.5">Preview</span>
+        <span className="text-[9px] font-mono text-muted/40 tracking-widest uppercase ml-0.5">
+          Preview
+        </span>
       </div>
 
       <div className="flex items-center gap-0.5 p-0.5 rounded-lg border border-border bg-card">
@@ -39,6 +42,7 @@ export function PreviewShell({ startupId, startupName, deviceMode, onDeviceModeC
           <button
             key={mode}
             onClick={() => onDeviceModeChange(mode)}
+            aria-label={mode}
             className={cn(
               'flex items-center justify-center w-7 h-7 rounded-md transition-colors',
               deviceMode === mode
