@@ -12,7 +12,6 @@ export default async function StandalonePreviewPage({ params, searchParams }: Pa
     <PreviewStartupScreen
       startupId={startupId}
       initialScreenId={screen}
-      isStandalone
     />
   )
 }
