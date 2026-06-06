@@ -30,7 +30,7 @@ import {
   FOUNDATION_CATEGORIES,
   MARKET_SIZING_CARDS,
   MARKET_SIZING_BASIS,
-} from './summary.data'
+} from './summary.constants'
 import type { LabelValueRow } from './summary.types'
 
 // ── Shared primitives ────────────────────────────────────────────────────────

@@ -55,7 +55,7 @@ export const useFounderSessionStore = create<FounderSessionStore>()(
     }),
     {
       name: 'xenysis-founder-session',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       // canvasPingAt excluded — real-time event timestamp, meaningless after reload
       partialize: (state) => ({
         idea: state.idea,

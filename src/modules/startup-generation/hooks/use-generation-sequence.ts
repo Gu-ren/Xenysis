@@ -28,7 +28,8 @@ export function useGenerationSequence(
     let cancelled = false
     const ids: ReturnType<typeof setTimeout>[] = []
 
-    // Fire generation in parallel — resolves instantly in Phase 1 mock
+    // BACKEND: replace with a real SSE/websocket stream from POST /startups/generate
+    // The timer-driven stage progression below simulates server-side progress events.
     const generationPromise = generateStartup(idea, blueprint)
 
     let elapsed = 0

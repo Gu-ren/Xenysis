@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LOADER_CHECKLIST } from '../summary.data'
+import { LOADER_CHECKLIST } from '../summary.constants'
 import Image from 'next/image'
 interface LoaderScreenProps {
   onDone: () => void

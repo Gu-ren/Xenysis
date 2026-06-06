@@ -1,1 +1,1 @@
-export { default } from "@/modules/startup/pages/LogsPage"
+export { default } from "@/modules/startup/screens/LogsScreen"

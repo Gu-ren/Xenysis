@@ -1,4 +1,4 @@
-export default async function LogsPage({
+export default async function LogsScreen({
   params,
 }: {
   params: Promise<{ startupId: string }>

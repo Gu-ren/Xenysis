@@ -2,9 +2,12 @@
 
 import { useRouter } from "next/navigation"
 import { Bell, Plus, Search, ArrowRight } from "lucide-react"
+import { useAuth } from "@/services/auth/use-auth"
 
 export function AppHeader() {
   const router = useRouter()
+  const { user } = useAuth()
+  const initials = user?.email?.[0]?.toUpperCase() ?? 'G'
 
   return (
     <header className="sticky top-0 z-50 flex items-center justify-between h-12 px-4 border-b border-border bg-background/95 backdrop-blur-md shrink-0">
@@ -40,8 +43,7 @@ export function AppHeader() {
           className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 border border-primary/20 text-xs font-semibold font-mono text-primary hover:border-primary/40 transition-colors ml-0.5"
           aria-label="User menu"
         >
-          {/* TODO: derive from authenticated user */}
-          G
+          {initials}
         </button>
 
         {/* New Startup CTA */}

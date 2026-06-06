@@ -12,12 +12,13 @@ import {
 } from 'lucide-react'
 import type { CanvasNodeData, CanvasEdgeData, ClaritySegment } from '../types'
 
+// BACKEND: replace with a streamed AI response from POST /founder-session/message
+// The text is streamed token-by-token; canvas nodes/edges are revealed as AI insights are extracted.
 export const STREAMING_FULL_TEXT =
   "Adding subscription infrastructure and property data models. I'm also seeing an opportunity for a client portal — real estate teams often need a white-labeled space for clients to track their deals."
 
-// ── Canvas nodes ──────────────────────────────────────────────────────────────
+// BACKEND: replace with nodes derived from the AI session response (extracted entities)
 // Ordered: latent → core (top-to-bottom) → opportunity (last, renders on top)
-
 export const CANVAS_NODES: CanvasNodeData[] = [
   // Latent — undiscovered possibilities (no label, no icon)
   { id: 'lat1', label: '', type: 'core', state: 'latent', cx: 178, cy: 50  },
@@ -123,6 +124,7 @@ export const CANVAS_NODES: CanvasNodeData[] = [
   },
 ]
 
+// BACKEND: replace with edges derived from the AI session response (relationships between entities)
 export const CANVAS_EDGES: CanvasEdgeData[] = [
   { from: 'landing',   to: 'signup' },
   { from: 'landing',   to: 'onboard' },

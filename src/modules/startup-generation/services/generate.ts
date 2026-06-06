@@ -26,7 +26,8 @@ export function deriveStartupName(idea: string): string {
   return base[0].toUpperCase() + base.slice(1) + suffix
 }
 
-// Phase 1: mock generation active when NEXT_PUBLIC_API_URL is unset.
+// BACKEND: replace mock branch with apiPost<...>('/startups/generate', { idea, blueprint })
+// The real endpoint returns { startupId, startupName, graph } after server-side generation.
 export async function generateStartup(
   idea: string,
   blueprint: StartupBlueprint | null,

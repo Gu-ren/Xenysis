@@ -17,10 +17,9 @@ import {
 import { hasBackend } from '@/lib/api'
 import type { WorkspaceGraph } from '../types'
 
-// Phase 1: mock data active when NEXT_PUBLIC_API_URL is unset.
-// When backend is ready: implement icon resolution (WorkspaceAsset.icon is an
-// ElementType — the API will return an iconName string, resolve it client-side
-// via a nodeType → LucideIcon map before returning).
+// BACKEND: replace mock branch with apiGet<WorkspaceGraph>(`/startups/${startupId}/workspace`)
+// Note: API returns iconName (string); resolve to LucideIcon client-side via a nodeType→icon map
+// before returning, since WorkspaceAsset.icon is an ElementType (not JSON-serializable).
 export async function getWorkspaceGraph(startupId: string): Promise<WorkspaceGraph> {
   if (hasBackend) throw new Error('getWorkspaceGraph: real API not yet implemented — set up icon resolution first')
   return {
