@@ -1,1 +1,1 @@
-export { default } from "@/modules/startup/pages/StartupSettingsPage"
+export { default } from "@/modules/startup/screens/StartupSettingsScreen"

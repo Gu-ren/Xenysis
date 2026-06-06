@@ -13,12 +13,14 @@ const ENVIRONMENTS: { id: Environment; label: string }[] = [
   { id: "development", label: "Development" },
 ]
 
+// BACKEND: replace with apiGet<EnvConfig>(`/startups/${startupId}/deploy/environments`)
 const ENV_CONFIG: Record<Environment, { branch: string; region: string; url: string }> = {
   production: { branch: "main", region: "us-east-1", url: "https://myapp.vercel.app" },
   staging: { branch: "staging", region: "us-east-1", url: "https://staging.myapp.vercel.app" },
   development: { branch: "dev", region: "us-west-2", url: "https://dev.myapp.vercel.app" },
 }
 
+// BACKEND: replace with apiGet<Release[]>(`/startups/${startupId}/deploy/releases`)
 const RELEASES: {
   id: string
   version: string
@@ -34,6 +36,7 @@ const RELEASES: {
   { id: "r5", version: "v0.3.7", status: "success", time: "5d ago", commit: "cc219e", env: "staging" },
 ]
 
+// BACKEND: replace with apiGet<EnvVar[]>(`/startups/${startupId}/deploy/env-vars`)
 const ENV_VARS = [
   { key: "DATABASE_URL", value: "postgres://••••••••@db.host/prod" },
   { key: "NEXTAUTH_SECRET", value: "••••••••••••••••" },
@@ -58,7 +61,7 @@ function statusLabel(status: DeployStatus): string {
   return "Queued"
 }
 
-export default function DeployPage() {
+export default function DeployScreen() {
   const [env, setEnv] = useState<Environment>("production")
   const [deploying, setDeploying] = useState(false)
 

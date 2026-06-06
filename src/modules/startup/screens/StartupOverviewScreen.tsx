@@ -1,4 +1,4 @@
-export default async function StartupOverviewPage({
+export default async function StartupOverviewScreen({
   params,
 }: {
   params: Promise<{ startupId: string }>

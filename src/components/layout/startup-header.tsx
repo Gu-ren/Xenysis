@@ -4,6 +4,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useParams } from "next/navigation"
 import { Bell, ArrowLeft } from "lucide-react"
+import { useAuth } from "@/services/auth/use-auth"
 
 const SECTION_LABELS: Record<string, string> = {
   workspace:        "Workspace",
@@ -31,8 +32,11 @@ export function StartupHeader() {
   const pathname  = usePathname()
   const params    = useParams()
   const startupId = params.startupId as string
+  const { user }  = useAuth()
+  const initials  = user?.email?.[0]?.toUpperCase() ?? 'G'
 
-  // TODO: replace with real startup name from store/query
+  // Derives a readable name from the URL slug until the startup name is fetched from the API.
+  // BACKEND: replace formatStartupName(startupId) with useStartup(startupId).name
   const startupName    = formatStartupName(startupId)
   const currentSection = getCurrentSection(pathname, startupId)
 
@@ -84,8 +88,7 @@ export function StartupHeader() {
 
         {/* User menu */}
         <button className="flex items-center justify-center w-8 h-8 rounded-full bg-card border border-border text-xs font-semibold text-foreground hover:border-primary/50 transition-colors ml-1 shrink-0">
-          {/* TODO: replace with real user initials */}
-          G
+          {initials}
         </button>
       </div>
     </header>

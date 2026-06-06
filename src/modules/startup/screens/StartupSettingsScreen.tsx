@@ -1,4 +1,4 @@
-export default async function StartupSettingsPage({
+export default async function StartupSettingsScreen({
   params,
 }: {
   params: Promise<{ startupId: string }>

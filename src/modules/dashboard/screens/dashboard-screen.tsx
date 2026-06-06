@@ -5,7 +5,7 @@ import { RecentActivity } from "../components/recent-activity"
 import { StartupSummary } from "../components/startup-summary"
 import type { ActivityItem } from "@/types"
 
-// Mock activity — replace with real API fetch when backend is wired
+// BACKEND: replace with apiGet<ActivityItem[]>('/activity?limit=10')
 const MOCK_ACTIVITY: ActivityItem[] = [
   {
     id: "act_01",

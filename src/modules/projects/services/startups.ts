@@ -47,6 +47,7 @@ const MOCK_STARTUPS: StartupWithHealth[] = [
   },
 ]
 
+// BACKEND: replace mock branch with apiGet<StartupWithHealth[]>('/startups')
 export async function fetchStartups(): Promise<StartupWithHealth[]> {
   if (hasBackend) return apiGet<StartupWithHealth[]>('/startups')
   await new Promise((resolve) => setTimeout(resolve, 0))

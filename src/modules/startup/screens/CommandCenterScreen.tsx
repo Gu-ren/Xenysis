@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 
+// BACKEND: replace with apiGet<SystemService[]>(`/startups/${startupId}/health/services`)
 const SYSTEM_SERVICES = [
   { label: "API Gateway", status: "operational" as const, latency: "42ms" },
   { label: "Database", status: "operational" as const, latency: "8ms" },
@@ -12,6 +13,7 @@ const SYSTEM_SERVICES = [
   { label: "CDN", status: "operational" as const, latency: "12ms" },
 ]
 
+// BACKEND: replace with apiGet<GenerationTask[]>(`/startups/${startupId}/generation/progress`)
 const GENERATION_TASKS = [
   { label: "Architecture", count: 6, total: 6 },
   { label: "Database Schema", count: 4, total: 4 },
@@ -20,6 +22,7 @@ const GENERATION_TASKS = [
   { label: "Deployment Config", count: 2, total: 2 },
 ]
 
+// BACKEND: replace with apiGet<AiActivity[]>(`/startups/${startupId}/activity?limit=10`)
 const AI_ACTIVITY = [
   { action: "Generated 3 API route handlers for Orders module", time: "4m ago" },
   { action: "Completed database schema for Users module", time: "18m ago" },
@@ -40,7 +43,7 @@ function statusTextColor(status: "operational" | "degraded" | "down") {
   return "text-danger"
 }
 
-export default function CommandCenterPage() {
+export default function CommandCenterScreen() {
   const params = useParams()
   const startupId = params.startupId as string
 

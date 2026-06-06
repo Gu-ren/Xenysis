@@ -1,1 +1,1 @@
-export { default } from "@/modules/startup/pages/CommandCenterPage"
+export { default } from "@/modules/startup/screens/CommandCenterScreen"

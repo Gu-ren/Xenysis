@@ -24,7 +24,7 @@ export const useStartupStore = create<StartupStore>()(
     }),
     {
       name: 'xenysis-startup',
-      storage: createJSONStorage(() => sessionStorage),
+      storage: createJSONStorage(() => localStorage),
       // graph excluded: WorkspaceAsset.icon is an ElementType (function ref) — not
       // JSON-serializable. WorkspaceScreen re-fetches via getWorkspaceGraph(startupId).
       partialize: (state) => ({ startupId: state.startupId }),

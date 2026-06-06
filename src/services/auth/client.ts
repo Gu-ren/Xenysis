@@ -1,4 +1,4 @@
-// Supabase client — initialize when auth is integrated.
+// BACKEND: initialize Supabase client when auth is integrated.
 // Required env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY
 //
 // import { createClient } from "@supabase/supabase-js"
