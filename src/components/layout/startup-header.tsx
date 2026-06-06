@@ -1,6 +1,5 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
 import { usePathname, useParams } from "next/navigation"
 import { Bell, ArrowLeft } from "lucide-react"

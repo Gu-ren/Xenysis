@@ -32,7 +32,7 @@ export function DeploySection() {
           {/* Left: heading */}
           <div>
             <MonoLabel className="block mb-8" style={{ color: "rgba(255,255,255,0.3)" }}>
-              04 / DEPLOY
+              04 / Launch
             </MonoLabel>
             <h2
               className="mb-6 font-sans font-medium tracking-[-0.025em] leading-[1.1]"

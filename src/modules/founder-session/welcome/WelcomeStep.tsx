@@ -27,17 +27,6 @@ const ExampleChip = ({ label, onClick }: ChipProps) => {
   )
 }
 
-const AnalysisItem = ({ label }: { label: string }) => {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="w-[4px] h-[4px] rounded-full bg-[#44E5A9] opacity-60" />
-      <span className="font-mono text-[11px] text-[rgba(255,255,255,0.4)] uppercase tracking-wide">
-        {label}
-      </span>
-    </div>
-  )
-}
-
 export function WelcomeStep() {
   const [idea, setIdea] = React.useState('')
   const [submitted, setSubmitted] = React.useState(false)
@@ -86,13 +75,6 @@ export function WelcomeStep() {
     setIdea(val)
   }
 
-  const analysisMetrics = [
-    'Market Opportunity',
-    'Customer Demand',
-    'Competitive Landscape',
-    'Business Viability',
-    'Startup Readiness',
-  ]
   const exampleChips = [
     'AI CRM for Real Estate',
     'Pet Sitter Marketplace',
@@ -107,24 +89,6 @@ export function WelcomeStep() {
         backgroundSize: '28px 28px',
       }}
     >
-      {/* Navbar */}
-      <nav className="fixed top-8 left-1/2 -translate-x-1/2 z-50">
-        <div
-          className="flex items-center justify-between gap-12 px-6 py-3 rounded-full bg-[rgba(11,12,14,0.55)] backdrop-blur-xl border border-[rgba(255,255,255,0.07)] shadow-2xl"
-          style={{
-            display: 'none',
-          }}
-        >
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-[#44E5A9] rounded-sm rotate-45" />
-            <span className="font-sans font-semibold tracking-tight text-[15px]">Xenysis</span>
-          </div>
-          <button className="text-[13px] font-sans text-[rgba(255,255,255,0.4)] hover:text-white transition-colors cursor-pointer">
-            Sign out
-          </button>
-        </div>
-      </nav>
-
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col items-center justify-center px-6 pt-[5vh] pb-[10vh]">
         <motion.div
@@ -133,18 +97,6 @@ export function WelcomeStep() {
           animate="visible"
           className="w-full max-w-[720px] flex flex-col items-center text-center -mt-[8vh]"
         >
-          {/* Step Label */}
-          <motion.div variants={itemVariants} className="mb-6">
-            <span
-              className="font-mono text-[12px] text-[#44E5A9] uppercase tracking-wider"
-              style={{
-                display: 'none',
-              }}
-            >
-              STEP 1 OF 5 · IDEA VALIDATION
-            </span>
-          </motion.div>
-
           {/* Logo */}
           <motion.div variants={itemVariants} className="mb-8 flex gap-2">
           <Image className="rounded-lg" src="/logo.svg" alt="Xenysis" width={28} height={28} priority />
@@ -198,24 +150,6 @@ export function WelcomeStep() {
             </div>
           </motion.div>
 
-          {/* Analysis Strip */}
-          <motion.div
-            variants={itemVariants}
-            className="w-full bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-[12px] px-6 h-[56px] flex items-center justify-between mb-8 overflow-x-auto no-scrollbar"
-            style={{
-              display: 'none',
-            }}
-          >
-            {analysisMetrics.map((metric, idx) => (
-              <React.Fragment key={metric}>
-                <AnalysisItem label={metric} />
-                {idx < analysisMetrics.length - 1 && (
-                  <div className="h-4 w-[1px] bg-[rgba(255,255,255,0.06)]" />
-                )}
-              </React.Fragment>
-            ))}
-          </motion.div>
-
           {/* Primary CTA */}
           <motion.div variants={itemVariants} className="w-full flex flex-col items-center gap-4">
             <motion.button
@@ -251,19 +185,6 @@ export function WelcomeStep() {
         </div>
       </div>
 
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `,
-        }}
-      />
     </div>
   )
 }

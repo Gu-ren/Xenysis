@@ -1,17 +1,26 @@
 'use client';
 
-export function GoogleButton() {
+interface GoogleButtonProps {
+  onClick?: () => void;
+  loading?: boolean;
+}
+
+export function GoogleButton({ onClick, loading }: GoogleButtonProps) {
   return (
     <button
       type="button"
-      className="w-full rounded-[6px] py-2.5 flex items-center justify-center gap-2.5 text-[13px] font-medium bg-transparent transition-colors duration-150"
+      onClick={onClick}
+      disabled={loading}
+      className="w-full rounded-[6px] py-2.5 flex items-center justify-center gap-2.5 text-[13px] font-medium bg-transparent transition-colors duration-150 disabled:opacity-60 disabled:cursor-not-allowed"
       style={{
         color: '#888888',
         border: '1px solid rgba(255,255,255,0.08)',
       }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.16)';
-        (e.currentTarget as HTMLButtonElement).style.color = '#F5F5F5';
+        if (!loading) {
+          (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.16)';
+          (e.currentTarget as HTMLButtonElement).style.color = '#F5F5F5';
+        }
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(255,255,255,0.08)';
@@ -36,7 +45,7 @@ export function GoogleButton() {
           d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
         />
       </svg>
-      <span>Continue with Google</span>
+      <span>{loading ? 'Redirecting…' : 'Continue with Google'}</span>
     </button>
   );
 }

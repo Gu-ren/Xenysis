@@ -43,6 +43,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+button {
+  cursor: pointer;
+}
+
 /* ── Founder Session animations ──────────────────────────────────────────── */
 @keyframes fs-shimmer {
   0%   { opacity: 0.35; }

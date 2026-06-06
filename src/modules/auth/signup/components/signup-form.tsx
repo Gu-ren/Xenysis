@@ -1,19 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { AuthInput } from '../../components/auth-input';
 import { GoogleButton } from '../../components/google-button';
-import { CommandCenterLoading } from '@/components/transitions/command-center-loading';
-
-const SUCCESS_STEPS = [
-  { label: 'Account created', durationMs: 400 },
-  { label: 'Profile initialized', durationMs: 350 },
-  { label: 'Sending verification code', durationMs: 300 },
-];
+import { supabase } from '@/services/auth/client';
+import { signInWithGoogle } from '@/services/auth';
+import { fetchStartups } from '@/modules/projects/services/startups';
 
 export function SignupForm() {
   const router = useRouter();
@@ -21,34 +17,76 @@ export function SignupForm() {
   const intent = searchParams.get('intent') ?? '';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [succeeding, setSucceeding] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setSucceeding(true);
+  // When the user confirms in the other tab, Supabase syncs the session via
+  // localStorage. Pick it up here and auto-advance to founder-session.
+  useEffect(() => {
+    if (!sent) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        fetchStartups()
+          .catch(() => [])
+          .then((startups) => router.push(startups.length === 0 ? '/founder-session' : '/dashboard'));
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [sent, intent, router]);
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    await signInWithGoogle();
+    setGoogleLoading(false);
   };
 
-  const verifyHref = (() => {
-    const params = new URLSearchParams({ source: 'signup' });
-    if (intent) params.set('intent', intent);
-    return `/verify?${params.toString()}`;
-  })();
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    const redirectTo = `${window.location.origin}/auth/confirm`;
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: redirectTo },
+    });
+
+    if (signUpError) {
+      setError(signUpError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Supabase returns no error for duplicate emails (prevents enumeration),
+    // but identities will be empty when the account already exists.
+    if (!data.user?.identities?.length) {
+      setError('already_exists');
+      setLoading(false);
+      return;
+    }
+
+    setSent(true);
+  };
 
   return (
     <AnimatePresence mode="wait">
-      {succeeding ? (
+      {sent ? (
         <motion.div
-          key="success"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.2 }}
-          className="py-4"
+          key="sent"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center gap-4 py-6 text-center"
         >
-          <CommandCenterLoading
-            title="Creating your account"
-            steps={SUCCESS_STEPS}
-            onComplete={() => router.push(verifyHref)}
-          />
+          <p className="text-[22px] font-semibold tracking-tight text-foreground">Check your inbox.</p>
+          <p className="text-[13px] text-muted leading-relaxed">
+            We sent a confirmation link to <span className="text-foreground">{email}</span>.
+            <br />Click it to finish signing up.
+          </p>
         </motion.div>
       ) : (
         <motion.form
@@ -64,7 +102,7 @@ export function SignupForm() {
             id="signup-email"
             label="Email"
             type="email"
-            placeholder="you@startup.com"
+            placeholder="JohnDoe@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
@@ -78,36 +116,70 @@ export function SignupForm() {
             >
               Password
             </label>
-            <input
-              id="signup-password"
-              type="password"
-              placeholder="Create a secure password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              className="w-full rounded-[6px] px-3.5 py-2.5 text-[14px] focus:outline-none transition-colors duration-150"
-              style={{
-                background: 'rgba(255,255,255,0.04)',
-                color: '#F5F5F5',
-                border: '1px solid rgba(255,255,255,0.08)',
-                caretColor: '#4FFAB0',
-              }}
-              onFocus={(e) => { e.currentTarget.style.borderColor = '#4FFAB0'; }}
-              onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
-            />
+            <div className="relative">
+              <input
+                id="signup-password"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Create a secure password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
+                className="w-full rounded-[6px] px-3.5 py-2.5 pr-10 text-[14px] focus:outline-none transition-colors duration-150"
+                style={{
+                  background: 'rgba(255,255,255,0.04)',
+                  color: '#F5F5F5',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  caretColor: '#4FFAB0',
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#4FFAB0'; }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors duration-150"
+                style={{ color: '#888888' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#4FFAB0'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#888888'; }}
+                tabIndex={-1}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
+
+          {error && (
+            <div
+              className="flex items-start gap-2.5 rounded-[6px] px-3 py-2.5"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
+              <AlertCircle className="w-3.5 h-3.5 mt-px shrink-0" style={{ color: '#EF4444' }} />
+              <p className="text-[12px] leading-snug" style={{ color: '#EF4444' }}>
+                {error === 'already_exists' ? (
+                  <>
+                    This email is already registered.{' '}
+                    <Link href="/login" className="underline font-medium" style={{ color: '#4FFAB0' }}>
+                      Sign in instead
+                    </Link>
+                  </>
+                ) : error}
+              </p>
+            </div>
+          )}
 
           <motion.button
             type="submit"
-            whileHover={{ scale: 1.005 }}
-            whileTap={{ scale: 0.995 }}
-            className="w-full rounded-[6px] py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2 group transition-colors duration-150 mt-0.5"
+            disabled={loading}
+            whileHover={!loading ? { scale: 1.005 } : {}}
+            whileTap={!loading ? { scale: 0.995 } : {}}
+            className="w-full rounded-[6px] py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2 group transition-colors duration-150 mt-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ background: '#4FFAB0', color: '#080808' }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#44E5A9'; }}
+            onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#44E5A9'; }}
             onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#4FFAB0'; }}
           >
-            <span>Start Building</span>
-            <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />
+            <span>{loading ? 'Creating account…' : 'Start Building'}</span>
+            {!loading && <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />}
           </motion.button>
 
           <div className="flex items-center gap-3 my-0.5">
@@ -118,7 +190,7 @@ export function SignupForm() {
             <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
           </div>
 
-          <GoogleButton />
+          <GoogleButton onClick={handleGoogleSignIn} loading={googleLoading} />
 
           <p className="text-center text-[12px] mt-1 text-muted">
             Already have an account?{' '}

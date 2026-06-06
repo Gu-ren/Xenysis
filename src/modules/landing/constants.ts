@@ -153,21 +153,19 @@ export function flowPath(fromId: string, toId: string): string {
 
 export const FOOTER_SECTIONS: FooterSection[] = [
   {
-    heading: "PRODUCT",
+    heading: "NAVIGATE",
     links: [
-      { label: "Features",     href: "#" },
-      { label: "How it works", href: "#" },
-      { label: "Docs",         href: "#" },
-      { label: "Pricing",      href: "#" },
+      { label: "How It Works",          href: "#how-it-works" },
+      { label: "Pricing",               href: "#pricing" },
+      { label: "Start Founder Session", href: "/founder-session" },
     ],
   },
   {
-    heading: "COMPANY",
+    heading: "LEGAL",
     links: [
-      { label: "About",   href: "#" },
-      { label: "Blog",    href: "#" },
-      { label: "Contact", href: "#" },
-      { label: "Privacy", href: "#" },
+      { label: "Contact", href: "mailto:hello@xenysis.com" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms",   href: "/terms" },
     ],
   },
 ]
