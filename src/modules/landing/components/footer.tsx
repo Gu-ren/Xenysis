@@ -63,6 +63,12 @@ export function Footer() {
             >
               Your AI technical cofounder. From idea to deployed product.
             </p>
+            <p
+              className="font-sans text-xs leading-relaxed max-w-[240px]"
+              style={{ color: "rgba(255,255,255,0.18)" }}
+            >
+              No credit card required to start.
+            </p>
           </div>
 
           {/* Link columns */}
@@ -70,19 +76,22 @@ export function Footer() {
             <div key={section.heading} className="flex flex-col gap-4">
               <MonoLabel style={{ color: "rgba(255,255,255,0.25)" }}>{section.heading}</MonoLabel>
               <ul className="flex flex-col gap-3">
-                {section.links.map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="font-sans text-sm transition-colors duration-200"
-                      style={{ color: "rgba(255,255,255,0.45)" }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.85)" }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)" }}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                ))}
+                {section.links.map((link) => {
+                  const isCta = link.label === "Start Founder Session"
+                  return (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        className="font-sans text-sm transition-colors duration-200"
+                        style={{ color: isCta ? "#4FFAB0" : "rgba(255,255,255,0.45)" }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = isCta ? "#44E5A9" : "rgba(255,255,255,0.85)" }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = isCta ? "#4FFAB0" : "rgba(255,255,255,0.45)" }}
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           ))}
@@ -96,9 +105,14 @@ export function Footer() {
           <MonoLabel style={{ color: "rgba(255,255,255,0.2)" }}>
             © {new Date().getFullYear()} Xenysis. All rights reserved.
           </MonoLabel>
-          <MonoLabel style={{ color: "rgba(255,255,255,0.15)" }}>
-            NO EQUITY TAKEN
-          </MonoLabel>
+          <div className="flex items-center gap-6">
+            <MonoLabel style={{ color: "rgba(255,255,255,0.15)" }}>
+              NO EQUITY TAKEN
+            </MonoLabel>
+            <MonoLabel style={{ color: "rgba(255,255,255,0.15)" }}>
+              NO CREDIT CARD REQUIRED
+            </MonoLabel>
+          </div>
         </div>
       </div>
     </footer>

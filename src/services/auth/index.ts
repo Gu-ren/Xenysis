@@ -1,33 +1,77 @@
-import type { User, Session, AuthError } from "./types"
+import { supabase } from './client'
+import type { User, Session, AuthError } from './types'
 
 export type { User, Session, AuthError }
 
-// BACKEND: await supabase.auth.signInWithOtp({ email })
 export async function signInWithEmail(
-  _email: string
+  email: string,
 ): Promise<{ error: AuthError | null }> {
-  throw new Error("Auth not yet implemented")
+  const { error } = await supabase.auth.signInWithOtp({ email })
+  return { error: error ? { message: error.message, code: error.code } : null }
 }
 
-// BACKEND: await supabase.auth.verifyOtp({ email, token, type: "email" })
 export async function verifyOtp(
-  _email: string,
-  _token: string
+  email: string,
+  token: string,
 ): Promise<{ session: Session | null; error: AuthError | null }> {
-  throw new Error("Auth not yet implemented")
+  const { data, error } = await supabase.auth.verifyOtp({
+    email,
+    token,
+    type: 'email',
+  })
+
+  if (error) return { session: null, error: { message: error.message, code: error.code } }
+
+  const s = data.session
+  if (!s) return { session: null, error: null }
+
+  return {
+    session: {
+      user: {
+        id: s.user.id,
+        email: s.user.email ?? '',
+        createdAt: s.user.created_at,
+      },
+      accessToken: s.access_token,
+      expiresAt: s.expires_at ?? 0,
+    },
+    error: null,
+  }
 }
 
-// BACKEND: await supabase.auth.signOut()
+export async function signInWithGoogle(): Promise<{ error: AuthError | null }> {
+  const redirectTo = `${window.location.origin}/auth/callback`;
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo },
+  });
+  return { error: error ? { message: error.message, code: error.code } : null };
+}
+
 export async function signOut(): Promise<void> {
-  throw new Error("Auth not yet implemented")
+  await supabase.auth.signOut()
 }
 
-// BACKEND: const { data } = await supabase.auth.getSession(); return data.session
 export async function getSession(): Promise<Session | null> {
-  return null
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return null
+  return {
+    user: {
+      id: session.user.id,
+      email: session.user.email ?? '',
+      createdAt: session.user.created_at,
+    },
+    accessToken: session.access_token,
+    expiresAt: session.expires_at ?? 0,
+  }
 }
 
-// BACKEND: const { data } = await supabase.auth.getUser(); return data.user
 export async function getUser(): Promise<User | null> {
-  return null
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return null
+  return {
+    id: user.id,
+    email: user.email ?? '',
+    createdAt: user.created_at,
+  }
 }

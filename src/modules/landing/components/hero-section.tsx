@@ -89,24 +89,7 @@ export function HeroSection() {
             <ArrowRight size={15} />
           </Link>
 
-          <button
-            className="px-8 py-3.5 rounded-full text-sm font-medium border transition-colors"
-            style={{
-              backgroundColor: "transparent",
-              color: "rgba(255,255,255,0.65)",
-              borderColor: "rgba(255,255,255,0.1)",
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.25)"
-              e.currentTarget.style.color = "rgba(255,255,255,0.9)"
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"
-              e.currentTarget.style.color = "rgba(255,255,255,0.65)"
-            }}
-          >
-            View Example Startup
-          </button>
+          
         </motion.div>
 
         {/* Caption */}

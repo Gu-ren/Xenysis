@@ -98,7 +98,7 @@ export function SystemAssemblySection() {
         <div className="w-full max-w-[1280px] mx-auto px-8">
           <div className="mb-14">
             <MonoLabel className="block mb-6" style={{ color: "rgba(255,255,255,0.3)" }}>
-              02 / GENERATE
+              02 / Blueprint
             </MonoLabel>
             <h2
               className="mb-4 font-sans font-medium tracking-[-0.025em] leading-[1.1]"

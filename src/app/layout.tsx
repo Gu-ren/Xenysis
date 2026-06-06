@@ -28,7 +28,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} dark`}
       suppressHydrationWarning
     >
-      <body className="bg-background text-foreground">{children}</body>
+      <body className="bg-background text-foreground" suppressHydrationWarning>{children}</body>
     </html>
   )
 }

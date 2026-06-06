@@ -1,4 +1,6 @@
-import { fetchStartups } from "@/modules/projects/services/startups"
+"use client"
+
+import { useStartups } from "@/modules/projects/hooks/use-startups"
 import { QuickActions } from "../components/quick-actions"
 import { PortfolioHealth } from "../components/portfolio-health"
 import { RecentActivity } from "../components/recent-activity"
@@ -27,8 +29,8 @@ const MOCK_ACTIVITY: ActivityItem[] = [
   },
 ]
 
-export async function DashboardScreen() {
-  const startups = await fetchStartups()
+export function DashboardScreen() {
+  const { startups } = useStartups()
 
   return (
     <div className="px-8 py-10">

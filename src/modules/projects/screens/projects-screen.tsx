@@ -1,14 +1,15 @@
-import { fetchStartups } from "../services/startups"
+"use client"
+
+import { useStartups } from "../hooks/use-startups"
 import { ProjectsContent } from "./projects-content"
 
-export async function ProjectsScreen() {
-  const startups = await fetchStartups()
-  const count = startups.length
+export function ProjectsScreen() {
+  const { startups } = useStartups()
 
   return (
     <ProjectsContent
       startups={startups}
-      count={count}
+      count={startups.length}
     />
   )
 }
