@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { useFounderSessionStore } from '@/store/founder-session'
+import { createStartup } from '@/modules/projects/services/startups'
+import { createSession } from '@/modules/founder-session/services/sessions'
 
 /**
  * Xenysis Onboarding - Step 1: Idea Validation
@@ -29,19 +31,34 @@ const ExampleChip = ({ label, onClick }: ChipProps) => {
 
 export function WelcomeStep() {
   const [idea, setIdea] = React.useState('')
-  const [submitted, setSubmitted] = React.useState(false)
+  const [loading, setLoading] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
   const storeSetIdea = useFounderSessionStore((s) => s.setIdea)
+  const setStartupId = useFounderSessionStore((s) => s.setStartupId)
+  const setSessionId = useFounderSessionStore((s) => s.setSessionId)
   const setStep = useFounderSessionStore((s) => s.setStep)
 
-  const handleSubmit = () => {
-    if (!idea.trim()) {
+  const handleSubmit = async () => {
+    const trimmed = idea.trim()
+    if (!trimmed) {
       textareaRef.current?.focus()
       return
     }
-    setSubmitted(true)
-    storeSetIdea(idea.trim())
-    setStep('session')
+    setLoading(true)
+    setError(null)
+    try {
+      const name = trimmed.length <= 60 ? trimmed : trimmed.slice(0, 57) + '…'
+      const startup = await createStartup({ name, description: trimmed })
+      const session = await createSession(startup.id, { idea: trimmed })
+      storeSetIdea(trimmed)
+      setStartupId(startup.id)
+      setSessionId(session.id)
+      setStep('session')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
+      setLoading(false)
+    }
   }
 
   const containerVariants = {
@@ -154,21 +171,23 @@ export function WelcomeStep() {
           <motion.div variants={itemVariants} className="w-full flex flex-col items-center gap-4">
             <motion.button
               onClick={handleSubmit}
-              disabled={submitted}
-              whileHover={{
-                scale: 1.01,
-                backgroundColor: '#52f0b4',
-              }}
-              whileTap={{
-                scale: 0.99,
-              }}
+              disabled={loading}
+              whileHover={{ scale: loading ? 1 : 1.01, backgroundColor: loading ? undefined : '#52f0b4' }}
+              whileTap={{ scale: loading ? 1 : 0.99 }}
               className="w-full h-[52px] bg-[#44E5A9] text-[#111111] font-sans font-semibold text-[15px] tracking-[-0.01em] rounded-full flex items-center justify-center cursor-pointer transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Start Founder Session →
+              {loading ? 'Starting session…' : 'Start Founder Session →'}
             </motion.button>
-            <span className="font-mono text-[11px] text-[rgba(255,255,255,0.3)] uppercase tracking-wide">
-              Xenysis will build a business case before making a recommendation.
-            </span>
+            {error && (
+              <span className="font-mono text-[11px] text-[#EF4444] text-center">
+                {error}
+              </span>
+            )}
+            {!error && (
+              <span className="font-mono text-[11px] text-[rgba(255,255,255,0.3)] uppercase tracking-wide">
+                Xenysis will build a business case before making a recommendation.
+              </span>
+            )}
           </motion.div>
         </motion.div>
       </main>

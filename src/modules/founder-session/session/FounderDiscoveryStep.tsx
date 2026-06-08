@@ -1,5 +1,5 @@
 import { ConversationPane } from './components/conversation-pane'
-import { NotebookPanel } from './components/notebook-panel'
+import { UnderstandingPanel } from './components/understanding-panel'
 
 export function FounderDiscoveryStep() {
   return (
@@ -8,7 +8,7 @@ export function FounderDiscoveryStep() {
         <ConversationPane />
       </div>
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <NotebookPanel />
+        <UnderstandingPanel />
       </div>
     </div>
   )

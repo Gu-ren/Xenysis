@@ -14,6 +14,10 @@ interface FounderSessionState {
   generationProgress: number
   generatedStartupId: string | null
   canvasPingAt: number | null
+  startupId: string | null
+  sessionId: string | null
+  lastExchangeAt: number | null
+  isSessionComplete: boolean
 }
 
 interface FounderSessionActions {
@@ -23,7 +27,11 @@ interface FounderSessionActions {
   setBlueprint: (blueprint: StartupBlueprint) => void
   setGenerationProgress: (progress: number) => void
   setGeneratedStartupId: (id: string) => void
+  setStartupId: (id: string) => void
+  setSessionId: (id: string) => void
   pingCanvas: () => void
+  pingExchange: () => void
+  setIsSessionComplete: (v: boolean) => void
   reset: () => void
 }
 
@@ -37,6 +45,10 @@ const initialState: FounderSessionState = {
   generationProgress: 0,
   generatedStartupId: null,
   canvasPingAt: null,
+  startupId: null,
+  sessionId: null,
+  lastExchangeAt: null,
+  isSessionComplete: false,
 }
 
 export const useFounderSessionStore = create<FounderSessionStore>()(
@@ -50,13 +62,17 @@ export const useFounderSessionStore = create<FounderSessionStore>()(
       setBlueprint: (blueprint) => set({ blueprint }),
       setGenerationProgress: (generationProgress) => set({ generationProgress }),
       setGeneratedStartupId: (generatedStartupId) => set({ generatedStartupId }),
+      setStartupId: (startupId) => set({ startupId }),
+      setSessionId: (sessionId) => set({ sessionId }),
       pingCanvas: () => set({ canvasPingAt: Date.now() }),
+      pingExchange: () => set({ lastExchangeAt: Date.now() }),
+      setIsSessionComplete: (isSessionComplete) => set({ isSessionComplete }),
       reset: () => set(initialState),
     }),
     {
       name: 'xenysis-founder-session',
       storage: createJSONStorage(() => localStorage),
-      // canvasPingAt excluded — real-time event timestamp, meaningless after reload
+      // canvasPingAt and lastExchangeAt excluded — real-time timestamps, meaningless after reload
       partialize: (state) => ({
         idea: state.idea,
         currentStep: state.currentStep,
@@ -64,6 +80,8 @@ export const useFounderSessionStore = create<FounderSessionStore>()(
         blueprint: state.blueprint,
         generationProgress: state.generationProgress,
         generatedStartupId: state.generatedStartupId,
+        startupId: state.startupId,
+        sessionId: state.sessionId,
       }),
     }
   )
