@@ -1,5 +1,11 @@
 export type CategoryStatus = 'missing' | 'partial' | 'complete'
 
+export type ValidationStatus = 'unknown' | 'validated' | 'explicitly_unvalidated'
+
+export type AssessmentTier = 'unknown' | 'gap' | 'assumption_based' | 'validated'
+
+export type QuestioningMode = 'discovery' | 'gap_identification'
+
 export type UnderstandingCategory =
   | 'problem'
   | 'customer'
@@ -16,6 +22,11 @@ export interface CategoryState {
   evidenceCount: number
   evidence: string[]
   evidenceStrength: number
+  validationStatus: ValidationStatus
+  weakAbsenceCount: number
+  saturationCount: number
+  lastFocusConfidence: number
+  assessmentTier: AssessmentTier
 }
 
 export interface CategoryWarning {
@@ -34,25 +45,42 @@ export interface FounderUnderstanding {
   warnings: CategoryWarning[]
   completionReason?: string
   focusHistory: string[]
+  validationGaps: UnderstandingCategory[]
+  questioningMode: QuestioningMode
+}
+
+const EMPTY_CATEGORY: CategoryState = {
+  confidence:          0,
+  status:              'missing',
+  evidenceCount:       0,
+  evidence:            [],
+  evidenceStrength:    1,
+  validationStatus:    'unknown',
+  weakAbsenceCount:    0,
+  saturationCount:     0,
+  lastFocusConfidence: 0,
+  assessmentTier:      'unknown',
 }
 
 export const EMPTY_UNDERSTANDING: FounderUnderstanding = {
   _schemaVersion: '1.1',
   categories: {
-    problem:     { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
-    customer:    { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
-    solution:    { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
-    market:      { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
-    pricing:     { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
-    competition: { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
-    risks:       { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
-    founder_fit: { confidence: 0, status: 'missing', evidenceCount: 0, evidence: [], evidenceStrength: 1 },
+    problem:     { ...EMPTY_CATEGORY },
+    customer:    { ...EMPTY_CATEGORY },
+    solution:    { ...EMPTY_CATEGORY },
+    market:      { ...EMPTY_CATEGORY },
+    pricing:     { ...EMPTY_CATEGORY },
+    competition: { ...EMPTY_CATEGORY },
+    risks:       { ...EMPTY_CATEGORY },
+    founder_fit: { ...EMPTY_CATEGORY },
   },
   overallConfidence: 0,
-  isComplete: false,
-  weakestCategory: null,
-  warnings: [],
-  focusHistory: [],
+  isComplete:        false,
+  weakestCategory:   null,
+  warnings:          [],
+  focusHistory:      [],
+  validationGaps:    [],
+  questioningMode:   'discovery',
 }
 
 export const CATEGORY_DISPLAY: Record<UnderstandingCategory, { label: string; required: boolean }> = {

@@ -9,6 +9,7 @@ import {
   CATEGORY_DISPLAY,
   FOCUS_LABEL,
   type CategoryStatus,
+  type ValidationStatus,
   type UnderstandingCategory,
   type CategoryWarning,
   type FounderUnderstanding,
@@ -69,22 +70,36 @@ function OverallBar({ confidence }: { confidence: number }) {
 
 // ── Current Focus card ────────────────────────────────────────────────────────
 
-function CurrentFocusCard({ category }: { category: UnderstandingCategory }) {
+function CurrentFocusCard({
+  category,
+  validationStatus,
+}: {
+  category: UnderstandingCategory
+  validationStatus: ValidationStatus
+}) {
+  const isGap = validationStatus === 'explicitly_unvalidated'
   return (
     <div className="px-5 py-3 shrink-0">
       <div
         className="rounded-[8px] px-3.5 py-2.5"
-        style={{ background: '#1A1A1A', border: '1px solid rgba(255,255,255,0.07)' }}
+        style={{
+          background: isGap ? 'rgba(245,158,11,0.06)' : '#1A1A1A',
+          border: isGap ? '1px solid rgba(245,158,11,0.18)' : '1px solid rgba(255,255,255,0.07)',
+        }}
       >
         <span
           className="block font-mono uppercase mb-1"
-          style={{ fontSize: 9, letterSpacing: '0.10em', color: 'rgba(255,255,255,0.28)' }}
+          style={{
+            fontSize: 9,
+            letterSpacing: '0.10em',
+            color: isGap ? 'rgba(245,158,11,0.55)' : 'rgba(255,255,255,0.28)',
+          }}
         >
-          Current Focus
+          {isGap ? 'Gap Identified' : 'Current Focus'}
         </span>
         <span
           className="tracking-[-0.01em] font-medium"
-          style={{ fontSize: 13, color: 'rgba(255,255,255,0.85)' }}
+          style={{ fontSize: 13, color: isGap ? 'rgba(245,158,11,0.80)' : 'rgba(255,255,255,0.85)' }}
         >
           {FOCUS_LABEL[category]}
         </span>
@@ -99,15 +114,29 @@ function CategoryRow({
   category,
   status,
   confidence,
+  validationStatus,
   delay,
 }: {
   category: UnderstandingCategory
   status: CategoryStatus
   confidence: number
+  validationStatus: ValidationStatus
   delay: number
 }) {
   const { label } = CATEGORY_DISPLAY[category]
-  const secText = confidence > 0 ? `${confidence}% confidence` : null
+  const isGap = validationStatus === 'explicitly_unvalidated'
+
+  let secText: string | null = null
+  if (isGap) {
+    secText = 'Gap identified'
+  } else if (confidence > 0) {
+    secText = `${confidence}% confidence`
+  }
+
+  const iconColor = isGap ? 'rgba(245,158,11,0.65)' : statusColor(status)
+  const icon      = isGap ? '–' : statusIcon(status)
+  const textColor = isGap ? 'rgba(255,255,255,0.50)' : labelColor(status)
+  const secColor  = isGap ? 'rgba(245,158,11,0.45)' : 'rgba(255,255,255,0.22)'
 
   return (
     <motion.div
@@ -122,27 +151,27 @@ function CategoryRow({
         className="shrink-0 font-mono font-bold leading-[1.4] mt-px"
         style={{
           fontSize: status === 'complete' ? 13 : 12,
-          color: statusColor(status),
+          color: iconColor,
           width: 16,
           textAlign: 'center',
           display: 'inline-block',
         }}
       >
-        {statusIcon(status)}
+        {icon}
       </span>
 
       {/* Label + secondary */}
       <div className="flex flex-col min-w-0">
         <span
           className="tracking-[-0.01em] leading-[1.4]"
-          style={{ fontSize: 13, color: labelColor(status) }}
+          style={{ fontSize: 13, color: textColor }}
         >
           {label}
         </span>
         {secText && (
           <span
             className="font-mono leading-[1.3]"
-            style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', marginTop: 1 }}
+            style={{ fontSize: 10, color: secColor, marginTop: 1 }}
           >
             {secText}
           </span>
@@ -183,22 +212,33 @@ function EmptyState() {
 function ActiveState({ understanding }: { understanding: FounderUnderstanding }) {
   const { overallConfidence, weakestCategory, categories } = understanding
   const categoryRows = ORDERED_CATEGORIES.map((cat) => ({
-    category: cat,
-    status: categories[cat].status,
-    confidence: categories[cat].confidence,
+    category:         cat,
+    status:           categories[cat].status,
+    confidence:       categories[cat].confidence,
+    validationStatus: categories[cat].validationStatus ?? 'unknown',
   }))
+
+  const focusValidationStatus = weakestCategory
+    ? (categories[weakestCategory].validationStatus ?? 'unknown')
+    : 'unknown'
 
   return (
     <div className="flex flex-col h-full">
       <OverallBar confidence={overallConfidence} />
-      {weakestCategory && <CurrentFocusCard category={weakestCategory} />}
+      {weakestCategory && (
+        <CurrentFocusCard
+          category={weakestCategory}
+          validationStatus={focusValidationStatus}
+        />
+      )}
       <div className="flex-1 overflow-y-auto px-5 pb-4" style={{ paddingTop: weakestCategory ? 4 : 8 }}>
-        {categoryRows.map(({ category, status, confidence }, i) => (
+        {categoryRows.map(({ category, status, confidence, validationStatus }, i) => (
           <CategoryRow
             key={category}
             category={category}
             status={status}
             confidence={confidence}
+            validationStatus={validationStatus}
             delay={i * 0.04}
           />
         ))}
@@ -287,6 +327,7 @@ function CompleteState({
             category={cat}
             status={categories[cat].status}
             confidence={categories[cat].confidence}
+            validationStatus={categories[cat].validationStatus ?? 'unknown'}
             delay={i * 0.06}
           />
         ))}

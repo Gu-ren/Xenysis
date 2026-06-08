@@ -18,6 +18,7 @@ export function ConversationPane() {
   const startupId = useFounderSessionStore((s) => s.startupId)
   const sessionId = useFounderSessionStore((s) => s.sessionId)
   const pingExchange = useFounderSessionStore((s) => s.pingExchange)
+  const isSessionComplete = useFounderSessionStore((s) => s.isSessionComplete)
 
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
@@ -116,13 +117,15 @@ export function ConversationPane() {
         <div className="flex items-center gap-3">
           <span className="font-mono text-[11px] text-muted">Founder Session</span>
         </div>
-        <button
-          onClick={handleEndSession}
-          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-background text-[11px] font-semibold tracking-[-0.01em] rounded-[7px] hover:bg-primary-hover transition-colors shrink-0 cursor-pointer"
-        >
-          End Session
-          <ArrowRight className="w-3 h-3" />
-        </button>
+        {isSessionComplete && (
+          <button
+            onClick={handleEndSession}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-background text-[11px] font-semibold tracking-[-0.01em] rounded-[7px] hover:bg-primary-hover transition-colors shrink-0 cursor-pointer"
+          >
+            End Session
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        )}
       </div>
 
       {/* Scroll area */}
