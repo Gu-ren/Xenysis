@@ -14,6 +14,9 @@ import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { useFounderSessionStore } from '@/store/founder-session'
 import { LoaderScreen, type LoaderStageEntry } from './components/loader-screen'
+import { ScoreBreakdownPanel } from './components/ScoreBreakdownPanel'
+import { ConfidenceBreakdownPanel } from './components/ConfidenceBreakdownPanel'
+import { ValidationGapList } from './components/ValidationGapList'
 import { TRUST_SIGNALS, FOUNDATION_CATEGORIES } from './summary.constants'
 import {
   fetchOpportunityAssessment,
@@ -26,7 +29,6 @@ import {
   type RecommendationAction,
   type KeyRisk,
 } from '../services/opportunity'
-import type { ConfidenceRow } from './summary.types'
 
 // ── Data helpers ──────────────────────────────────────────────────────────────
 
@@ -37,15 +39,6 @@ function verdictLabel(action: RecommendationAction): string {
     case 'validate_first':       return 'Validate Before Building'
     case 'pivot':                return 'Consider a Pivot'
     case 'pass':                 return 'Pass on This Idea'
-  }
-}
-
-function ratingToScore(r: Rating): number {
-  switch (r) {
-    case 'very_high': return 95
-    case 'high':      return 85
-    case 'medium':    return 70
-    case 'low':       return 50
   }
 }
 
@@ -64,16 +57,6 @@ function toSentences(text: string, max: number): string[] {
 function topRisk(risks: KeyRisk[]): KeyRisk | undefined {
   const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
   return [...risks].sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3))[0]
-}
-
-function buildConfidenceRows(c: OpportunityAssessmentContent): ConfidenceRow[] {
-  return [
-    { label: 'Market Potential',     pct: c.marketPotential.score },
-    { label: 'Founder Domain Fit',   pct: ratingToScore(c.founderFit.domainExpertise) },
-    { label: 'Execution Capability', pct: ratingToScore(c.founderFit.executionCapability) },
-    { label: 'Competitive Position', pct: ratingToScore(c.competitiveAdvantage.defensibility) },
-    { label: 'Customer Access',      pct: ratingToScore(c.founderFit.customerAccess) },
-  ]
 }
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
@@ -123,7 +106,8 @@ export function SummaryStep() {
   const [phase, setPhase]               = useState<'generating' | 'done' | 'error'>('generating')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [assessment, setAssessment]     = useState<OpportunityAssessmentResponse | null>(null)
-  const [methodologyOpen, setMethodologyOpen] = useState(false)
+  const [methodologyOpen, setMethodologyOpen]       = useState(false)
+  const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false)
 
   const hasStarted = useRef(false)
 
@@ -407,6 +391,31 @@ export function SummaryStep() {
                           </div>
                         </div>
                       </div>
+
+                      {/* v2.0: Score breakdown disclosure */}
+                      {content.scoreBreakdown && (
+                        <div className="mt-5 pt-4 border-t border-primary/10">
+                          <button
+                            onClick={() => setScoreBreakdownOpen((v) => !v)}
+                            className="flex items-center gap-1.5 text-[11px] text-primary/60 hover:text-primary transition-colors"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                'w-3.5 h-3.5 transition-transform duration-200',
+                                scoreBreakdownOpen && 'rotate-180',
+                              )}
+                            />
+                            See how the Opportunity Score was calculated
+                          </button>
+
+                          {scoreBreakdownOpen && (
+                            <ScoreBreakdownPanel
+                              breakdown={content.scoreBreakdown}
+                              opportunityScore={content.opportunityScore}
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -513,34 +522,44 @@ export function SummaryStep() {
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <SummaryCard className="p-5">
-                      <SectionLabel>Research Confidence</SectionLabel>
-                      <div className="flex flex-col gap-0">
-                        {buildConfidenceRows(content).map((row) => (
-                          <div
-                            key={row.label}
-                            className="flex items-center gap-2 py-[7px] border-b border-border last:border-b-0"
-                          >
-                            <span className="text-[12px] text-foreground/45 shrink-0 w-[148px]">
-                              {row.label}
-                            </span>
-                            <span className="flex-1 border-b border-dotted border-border" />
-                            <span className="text-[13px] font-semibold text-primary tabular-nums shrink-0">
-                              {row.pct}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                        <span className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold">
-                          Overall Confidence
-                        </span>
-                        <span className="text-[26px] font-bold text-primary tabular-nums leading-none">
-                          {content.confidenceScore}
-                          <span className="text-[13px] text-primary/50 font-medium">%</span>
-                        </span>
-                      </div>
-                    </SummaryCard>
+                    {content.confidenceBreakdown ? (
+                      <ConfidenceBreakdownPanel
+                        breakdown={content.confidenceBreakdown}
+                        confidenceScore={content.confidenceScore}
+                      />
+                    ) : (
+                      <SummaryCard className="p-5">
+                        <SectionLabel>Research Confidence</SectionLabel>
+                        <div className="flex flex-col gap-0">
+                          {[
+                            { label: 'Market Potential',     pct: content.marketPotential.score },
+                            { label: 'Founder Fit',          pct: content.founderFit.score },
+                          ].map((row) => (
+                            <div
+                              key={row.label}
+                              className="flex items-center gap-2 py-[7px] border-b border-border last:border-b-0"
+                            >
+                              <span className="text-[12px] text-foreground/45 shrink-0 w-[148px]">
+                                {row.label}
+                              </span>
+                              <span className="flex-1 border-b border-dotted border-border" />
+                              <span className="text-[13px] font-semibold text-primary tabular-nums shrink-0">
+                                {row.pct}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                          <span className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold">
+                            Overall Confidence
+                          </span>
+                          <span className="text-[26px] font-bold text-primary tabular-nums leading-none">
+                            {content.confidenceScore}
+                            <span className="text-[13px] text-primary/50 font-medium">%</span>
+                          </span>
+                        </div>
+                      </SummaryCard>
+                    )}
 
                     <SummaryCard className="p-5">
                       <div className="mb-4 pb-4 border-b border-border">
@@ -628,6 +647,11 @@ export function SummaryStep() {
                     </SummaryCard>
                   )}
                 </div>
+
+                {/* ── v2.0: Validation Gaps ── */}
+                {content.validationGapSummary && (
+                  <ValidationGapList summary={content.validationGapSummary} />
+                )}
 
                 {/* ── Generate Startup Foundation CTA ── */}
                 <section>

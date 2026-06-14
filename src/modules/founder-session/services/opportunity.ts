@@ -23,6 +23,58 @@ export type UnderstandingCategory =
   | 'risks'
   | 'founder_fit'
 
+// ── v2.0 Evidence Engine types ────────────────────────────────────────────────
+
+export type AssessmentTier = 'unknown' | 'gap' | 'assumption_based' | 'validated'
+
+export interface ScoreDimension {
+  score:     number
+  weight:    number
+  rationale: string
+  tier:      AssessmentTier
+}
+
+export interface ScoreBreakdown {
+  problemStrength:      ScoreDimension
+  customerClarity:      ScoreDimension
+  marketPotential:      ScoreDimension
+  competitiveAdvantage: ScoreDimension
+  founderFit:           ScoreDimension
+}
+
+export interface CategoryEvidenceQuality {
+  category:         UnderstandingCategory
+  tier:             AssessmentTier
+  evidenceStrength: number
+  confidence:       number
+  qualityScore:     number
+  label:            string
+}
+
+export interface ConfidenceBreakdown {
+  categories:          CategoryEvidenceQuality[]
+  strongCategories:    UnderstandingCategory[]
+  weakCategories:      UnderstandingCategory[]
+  missingCategories:   UnderstandingCategory[]
+  computedScore:       number
+  adjustmentRationale?: string
+}
+
+export interface ValidationGap {
+  category:        UnderstandingCategory
+  tier:            AssessmentTier
+  gapDescription:  string
+  riskIfUnfilled:  string
+  priority:        number
+  suggestedAction: string
+}
+
+export interface ValidationGapSummary {
+  gaps:             ValidationGap[]
+  evidenceStrength: string
+  overallGapRisk:   'low' | 'medium' | 'high' | 'critical'
+}
+
 export interface MarketPotential {
   size: Rating
   growth: Rating
@@ -69,7 +121,7 @@ export interface Recommendation {
 }
 
 export interface OpportunityAssessmentContent {
-  _schemaVersion: '1.0'
+  _schemaVersion: '1.0' | '2.0'
   executiveSummary: string
   opportunityScore: number
   confidenceScore: number
@@ -79,6 +131,10 @@ export interface OpportunityAssessmentContent {
   keyRisks: KeyRisk[]
   validationPlan: ValidationStep[]
   recommendation: Recommendation
+  // v2.0 explainability fields — absent on assessments generated before the Evidence Engine
+  scoreBreakdown?:       ScoreBreakdown
+  confidenceBreakdown?:  ConfidenceBreakdown
+  validationGapSummary?: ValidationGapSummary
 }
 
 export interface OpportunityAssessmentResponse {
