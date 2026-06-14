@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -13,27 +13,53 @@ import {
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { useFounderSessionStore } from '@/store/founder-session'
-import { LoaderScreen } from './components/loader-screen'
+import { LoaderScreen, type LoaderStageEntry } from './components/loader-screen'
+import { ScoreBreakdownPanel } from './components/ScoreBreakdownPanel'
+import { ConfidenceBreakdownPanel } from './components/ConfidenceBreakdownPanel'
+import { ValidationGapList } from './components/ValidationGapList'
+import { TRUST_SIGNALS, FOUNDATION_CATEGORIES } from './summary.constants'
 import {
-  WHY_NOW_ITEMS,
-  WHY_WIN_ITEMS,
-  BIGGEST_RISK,
-  EXPECTED_OUTCOME,
-  BLUEPRINT_CUSTOMER,
-  BLUEPRINT_MODEL,
-  BLUEPRINT_MVP,
-  BLUEPRINT_POSITIONING,
-  CONFIDENCE_ROWS,
-  ASSUMPTIONS,
-  CRITICAL_RISKS,
-  TRUST_SIGNALS,
-  FOUNDATION_CATEGORIES,
-  MARKET_SIZING_CARDS,
-  MARKET_SIZING_BASIS,
-} from './summary.constants'
-import type { LabelValueRow } from './summary.types'
+  fetchOpportunityAssessment,
+  streamOpportunityGeneration,
+  ApiError,
+  type OpportunityAssessmentContent,
+  type OpportunityAssessmentResponse,
+  type SSEStageEvent,
+  type Rating,
+  type RecommendationAction,
+  type KeyRisk,
+} from '../services/opportunity'
 
-// ── Shared primitives ────────────────────────────────────────────────────────
+// ── Data helpers ──────────────────────────────────────────────────────────────
+
+function verdictLabel(action: RecommendationAction): string {
+  switch (action) {
+    case 'proceed':              return 'Strong Opportunity'
+    case 'proceed_with_caution': return 'Proceed With Caution'
+    case 'validate_first':       return 'Validate Before Building'
+    case 'pivot':                return 'Consider a Pivot'
+    case 'pass':                 return 'Pass on This Idea'
+  }
+}
+
+function ratingLabel(r: Rating): string {
+  return r === 'very_high' ? 'Very High' : r.charAt(0).toUpperCase() + r.slice(1)
+}
+
+function toSentences(text: string, max: number): string[] {
+  const matches = text.match(/[^.!?]+[.!?]*/g) ?? [text]
+  return matches
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, max)
+}
+
+function topRisk(risks: KeyRisk[]): KeyRisk | undefined {
+  const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+  return [...risks].sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3))[0]
+}
+
+// ── Shared primitives ─────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -57,40 +83,144 @@ function SummaryCard({
   )
 }
 
-// ── Inner sections ───────────────────────────────────────────────────────────
-
-function LabelValueList({ rows }: { rows: LabelValueRow[] }) {
+function LabelValueItem({ label, value }: { label: string; value: string }) {
   return (
-    <ul className="flex flex-col gap-3.5">
-      {rows.map((row) => (
-        <li key={row.label}>
-          <p className="text-[9px] text-foreground/25 uppercase tracking-widest font-semibold mb-0.5">
-            {row.label}
-          </p>
-          <p className="text-[13px] text-foreground/70 leading-snug font-medium">{row.value}</p>
-        </li>
-      ))}
-    </ul>
+    <li>
+      <p className="text-[9px] text-foreground/25 uppercase tracking-widest font-semibold mb-0.5">
+        {label}
+      </p>
+      <p className="text-[13px] text-foreground/70 leading-snug font-medium">{value}</p>
+    </li>
   )
 }
 
-// ── Main component ───────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function SummaryStep() {
   const router = useRouter()
-  const { idea } = useFounderSessionStore()
-  const [loaderDone, setLoaderDone] = useState(false)
-  const [methodologyOpen, setMethodologyOpen] = useState(false)
+  const { idea, startupId, sessionId } = useFounderSessionStore()
+
+  const [loaderDone, setLoaderDone]     = useState(false)
+  const [stages, setStages]             = useState<LoaderStageEntry[]>([])
+  const [progress, setProgress]         = useState(0)
+  const [phase, setPhase]               = useState<'generating' | 'done' | 'error'>('generating')
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [assessment, setAssessment]     = useState<OpportunityAssessmentResponse | null>(null)
+  const [methodologyOpen, setMethodologyOpen]       = useState(false)
+  const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false)
+
+  const hasStarted = useRef(false)
+
+  // Upsert a stage entry by stageId — pending events are not shown in the UI.
+  const upsertStage = useCallback((event: SSEStageEvent) => {
+    if (event.state === 'pending') return
+    setStages((prev) => {
+      const idx   = prev.findIndex((s) => s.stageId === event.stageId)
+      const entry: LoaderStageEntry = {
+        stageId: event.stageId,
+        label:   event.label,
+        state:   event.state as 'active' | 'done',
+      }
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx]  = entry
+        return next
+      }
+      return [...prev, entry]
+    })
+  }, [])
+
+  useEffect(() => {
+    if (hasStarted.current) return
+    hasStarted.current = true
+
+    async function init() {
+      // Guard: store must have both IDs before generation can start.
+      if (!startupId || !sessionId) {
+        setErrorMessage(
+          'Session context is missing. Return to the founder session to continue.',
+        )
+        setPhase('error')
+        return
+      }
+
+      // Fast path: assessment already exists (page refresh / revisit).
+      // Skip the loader entirely — render the report immediately.
+      try {
+        const existing = await fetchOpportunityAssessment(startupId)
+        setAssessment(existing)
+        setLoaderDone(true)
+        setPhase('done')
+        return
+      } catch (e) {
+        if (!(e instanceof ApiError && e.status === 404)) {
+          setErrorMessage('Unable to load the opportunity assessment. Please try again.')
+          setPhase('error')
+          return
+        }
+        // 404 → no existing assessment, continue to generation
+      }
+
+      // Slow path: stream a new generation via SSE.
+      try {
+        await streamOpportunityGeneration(startupId, sessionId, {
+          onStage:    upsertStage,
+          onProgress: (pct) => setProgress(pct),
+          onComplete: async (_artifactId, _versionId) => {
+            try {
+              const result = await fetchOpportunityAssessment(startupId)
+              setAssessment(result)
+              setProgress(100)
+              setPhase('done')
+            } catch {
+              setErrorMessage(
+                'Assessment was generated but could not be loaded. Please refresh the page.',
+              )
+              setPhase('error')
+            }
+          },
+          onError: (_code, msg) => {
+            setErrorMessage(
+              msg || 'Opportunity assessment generation failed. Please try again.',
+            )
+            setPhase('error')
+          },
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : 'An unexpected error occurred.'
+        setErrorMessage(msg)
+        setPhase('error')
+      }
+    }
+
+    void init()
+  }, [startupId, sessionId, upsertStage])
 
   const handleGenerate = () => router.push('/generating')
-  const handleRefine = () => router.push('/founder-session')
+  const handleRefine   = () => router.push('/founder-session')
+
+  const content = assessment?.content ?? null
+  const verdict = content ? verdictLabel(content.recommendation.action) : ''
+  const top      = content ? topRisk(content.keyRisks) : undefined
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 selection:text-primary pb-[76px]">
-      {!loaderDone && <LoaderScreen onDone={() => setLoaderDone(true)} />}
+
+      {/* ── Loader (unmounts once loaderDone = true) ── */}
+      {!loaderDone && (
+        <LoaderScreen
+          stages={stages}
+          progress={progress}
+          done={phase !== 'generating'}
+          onExited={() => setLoaderDone(true)}
+          errorMessage={phase === 'error' ? errorMessage : null}
+        />
+      )}
 
       <AnimatePresence>
-        {loaderDone && (
+
+        {/* ── Success: full report ── */}
+        {loaderDone && phase === 'done' && content && (
           <motion.div
             key="report"
             initial={{ opacity: 0 }}
@@ -129,7 +259,7 @@ export function SummaryStep() {
                         Opportunity
                       </span>
                       <span className="text-[12px] font-bold text-primary tabular-nums leading-none">
-                        82/100
+                        {content.opportunityScore}/100
                       </span>
                     </div>
                     <div className="flex items-center gap-1.5 px-2 py-[5px] bg-card border border-border rounded-md">
@@ -137,12 +267,12 @@ export function SummaryStep() {
                         Confidence
                       </span>
                       <span className="text-[12px] font-bold text-primary tabular-nums leading-none">
-                        87%
+                        {content.confidenceScore}%
                       </span>
                     </div>
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-[5px] bg-primary/10 border border-primary/20 rounded-full text-[10px] font-semibold text-primary">
                       <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                      Strong Opportunity
+                      {verdict}
                     </span>
                   </div>
                 </div>
@@ -161,7 +291,8 @@ export function SummaryStep() {
                 transition={{ duration: 0.35 }}
                 className="flex flex-col gap-5"
               >
-                {/* ── Opportunity assessment ── */}
+
+                {/* ── Opportunity Assessment hero ── */}
                 <section>
                   <div
                     className="relative rounded-2xl border border-primary/20 bg-background overflow-hidden"
@@ -173,13 +304,13 @@ export function SummaryStep() {
                     <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-l-2xl" />
 
                     <div className="pl-7 pr-6 pt-6 pb-6">
-                      <div className="flex items-start justify-between gap-4 mb-5 flex-wrap">
+                      <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
                         <div>
                           <p className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold mb-1">
                             OPPORTUNITY ASSESSMENT
                           </p>
                           <h1 className="text-[38px] font-bold text-foreground tracking-tight leading-none">
-                            Verdict: Strong Opportunity
+                            Verdict: {verdict}
                           </h1>
                         </div>
                         <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
@@ -187,167 +318,258 @@ export function SummaryStep() {
                             Confidence
                           </span>
                           <span className="text-[42px] font-bold text-primary tabular-nums leading-none tracking-tight">
-                            87
+                            {content.confidenceScore}
                             <span className="text-[18px] font-medium text-primary/50">%</span>
                           </span>
                         </div>
                       </div>
 
+                      {/* Executive summary */}
+                      <p className="text-[13px] text-foreground/50 leading-relaxed mb-5 max-w-[800px]">
+                        {content.executiveSummary}
+                      </p>
+
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-0 lg:divide-x lg:divide-border">
+                        {/* Col 1: Market signals from narrative */}
                         <div className="lg:pr-5">
                           <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
-                            Why Now
+                            Market Signals
                           </p>
                           <ul className="flex flex-col gap-1.5">
-                            {WHY_NOW_ITEMS.map((item) => (
-                              <li key={item.text} className="flex items-start gap-2">
+                            {toSentences(content.marketPotential.narrative, 3).map((s, i) => (
+                              <li key={i} className="flex items-start gap-2">
                                 <CheckCircle2 className="w-3 h-3 text-primary shrink-0 mt-[2px]" />
                                 <span className="text-[12px] text-foreground/55 leading-snug">
-                                  {item.text}
+                                  {s}
                                 </span>
                               </li>
                             ))}
                           </ul>
                         </div>
 
+                        {/* Col 2: Competitive differentiators */}
                         <div className="lg:px-5">
                           <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
                             Why It Can Win
                           </p>
                           <ul className="flex flex-col gap-1.5">
-                            {WHY_WIN_ITEMS.map((item) => (
-                              <li key={item.text} className="flex items-start gap-2">
+                            {content.competitiveAdvantage.differentiators.map((d) => (
+                              <li key={d} className="flex items-start gap-2">
                                 <CheckCircle2 className="w-3 h-3 text-primary shrink-0 mt-[2px]" />
                                 <span className="text-[12px] text-foreground/55 leading-snug">
-                                  {item.text}
+                                  {d}
                                 </span>
                               </li>
                             ))}
                           </ul>
                         </div>
 
+                        {/* Col 3: Top risk */}
                         <div className="lg:px-5">
                           <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
                             Biggest Risk
                           </p>
-                          <div className="flex items-start gap-2">
-                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-[1px]" />
-                            <span className="text-[12px] text-foreground/55 leading-snug">
-                              {BIGGEST_RISK}
-                            </span>
-                          </div>
+                          {top && (
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-[1px]" />
+                              <span className="text-[12px] text-foreground/55 leading-snug">
+                                {top.description}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
+                        {/* Col 4: Expected outcome */}
                         <div className="lg:pl-5">
                           <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
                             Expected Outcome
                           </p>
                           <div className="bg-primary/[0.06] border border-primary/12 rounded-lg px-3 py-2.5">
                             <p className="text-[12px] text-foreground/55 leading-snug">
-                              {EXPECTED_OUTCOME}
+                              {content.recommendation.rationale}
                             </p>
                           </div>
                         </div>
                       </div>
+
+                      {/* v2.0: Score breakdown disclosure */}
+                      {content.scoreBreakdown && (
+                        <div className="mt-5 pt-4 border-t border-primary/10">
+                          <button
+                            onClick={() => setScoreBreakdownOpen((v) => !v)}
+                            className="flex items-center gap-1.5 text-[11px] text-primary/60 hover:text-primary transition-colors"
+                          >
+                            <ChevronDown
+                              className={cn(
+                                'w-3.5 h-3.5 transition-transform duration-200',
+                                scoreBreakdownOpen && 'rotate-180',
+                              )}
+                            />
+                            See how the Opportunity Score was calculated
+                          </button>
+
+                          {scoreBreakdownOpen && (
+                            <ScoreBreakdownPanel
+                              breakdown={content.scoreBreakdown}
+                              opportunityScore={content.opportunityScore}
+                            />
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
 
-                {/* ── Startup blueprint ── */}
+                {/* ── Assessment Breakdown ── */}
                 <section>
                   <div className="flex items-baseline gap-3 mb-3">
                     <h2 className="text-[13px] font-semibold text-foreground/75 tracking-tight">
-                      Startup Blueprint
+                      Assessment Breakdown
                     </h2>
                     <span className="text-[11px] text-foreground/22">
-                      Customer · Model · Product · Position
+                      Market · Fit · Next Steps · Competitive Edge
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Market Potential */}
                     <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Customer Profile</SectionLabel>
-                      <LabelValueList rows={BLUEPRINT_CUSTOMER} />
+                      <SectionLabel>Market Potential</SectionLabel>
+                      <ul className="flex flex-col gap-3.5">
+                        <LabelValueItem
+                          label="Market Size"
+                          value={ratingLabel(content.marketPotential.size)}
+                        />
+                        <LabelValueItem
+                          label="Growth Rate"
+                          value={ratingLabel(content.marketPotential.growth)}
+                        />
+                        <LabelValueItem
+                          label="Potential Score"
+                          value={`${content.marketPotential.score}/100`}
+                        />
+                      </ul>
                     </SummaryCard>
 
+                    {/* Founder Fit */}
                     <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Business Model</SectionLabel>
-                      <LabelValueList rows={BLUEPRINT_MODEL} />
+                      <SectionLabel>Founder Fit</SectionLabel>
+                      <ul className="flex flex-col gap-3.5">
+                        <LabelValueItem
+                          label="Domain Expertise"
+                          value={ratingLabel(content.founderFit.domainExpertise)}
+                        />
+                        <LabelValueItem
+                          label="Customer Access"
+                          value={ratingLabel(content.founderFit.customerAccess)}
+                        />
+                        <LabelValueItem
+                          label="Execution Capability"
+                          value={ratingLabel(content.founderFit.executionCapability)}
+                        />
+                      </ul>
                     </SummaryCard>
 
+                    {/* Next Steps */}
                     <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Recommended MVP</SectionLabel>
+                      <SectionLabel>Next Steps</SectionLabel>
                       <ul className="flex flex-col gap-2">
-                        {BLUEPRINT_MVP.map((text, idx) => (
-                          <li key={text} className="flex items-center gap-2.5">
+                        {content.recommendation.nextSteps.map((step, idx) => (
+                          <li key={step} className="flex items-center gap-2.5">
                             <span className="w-5 h-5 rounded-full bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
                               <span className="text-[9px] font-bold text-primary tabular-nums">
                                 {idx + 1}
                               </span>
                             </span>
-                            <span className="text-[13px] text-foreground/65 font-medium">{text}</span>
+                            <span className="text-[13px] text-foreground/65 font-medium">
+                              {step}
+                            </span>
                           </li>
                         ))}
                       </ul>
                     </SummaryCard>
 
+                    {/* Competitive Edge */}
                     <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Competitive Position</SectionLabel>
-                      <LabelValueList rows={BLUEPRINT_POSITIONING} />
+                      <SectionLabel>Competitive Edge</SectionLabel>
+                      <ul className="flex flex-col gap-3.5">
+                        <LabelValueItem
+                          label="Moat"
+                          value={content.competitiveAdvantage.moat ?? '—'}
+                        />
+                        <LabelValueItem
+                          label="Defensibility"
+                          value={ratingLabel(content.competitiveAdvantage.defensibility)}
+                        />
+                        <LabelValueItem
+                          label="Top Advantage"
+                          value={content.competitiveAdvantage.differentiators[0] ?? '—'}
+                        />
+                      </ul>
                     </SummaryCard>
                   </div>
                 </section>
 
-                {/* ── Decision intelligence ── */}
+                {/* ── Decision Intelligence ── */}
                 <section>
                   <div className="flex items-baseline gap-3 mb-3">
                     <h2 className="text-[13px] font-semibold text-foreground/75 tracking-tight">
                       Decision Intelligence
                     </h2>
                     <span className="text-[11px] text-foreground/22">
-                      Confidence · Assumptions · Risks
+                      Confidence · Validation · Risks
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <SummaryCard className="p-5">
-                      <SectionLabel>Research Confidence</SectionLabel>
-                      <div className="flex flex-col gap-0">
-                        {CONFIDENCE_ROWS.map((row) => (
-                          <div
-                            key={row.label}
-                            className="flex items-center gap-2 py-[7px] border-b border-border last:border-b-0"
-                          >
-                            <span className="text-[12px] text-foreground/45 shrink-0 w-[148px]">
-                              {row.label}
-                            </span>
-                            <span className="flex-1 border-b border-dotted border-border" />
-                            <span className="text-[13px] font-semibold text-primary tabular-nums shrink-0">
-                              {row.pct}%
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                        <span className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold">
-                          Overall Confidence
-                        </span>
-                        <span className="text-[26px] font-bold text-primary tabular-nums leading-none">
-                          87
-                          <span className="text-[13px] text-primary/50 font-medium">%</span>
-                        </span>
-                      </div>
-                    </SummaryCard>
+                    {content.confidenceBreakdown ? (
+                      <ConfidenceBreakdownPanel
+                        breakdown={content.confidenceBreakdown}
+                        confidenceScore={content.confidenceScore}
+                      />
+                    ) : (
+                      <SummaryCard className="p-5">
+                        <SectionLabel>Research Confidence</SectionLabel>
+                        <div className="flex flex-col gap-0">
+                          {[
+                            { label: 'Market Potential',     pct: content.marketPotential.score },
+                            { label: 'Founder Fit',          pct: content.founderFit.score },
+                          ].map((row) => (
+                            <div
+                              key={row.label}
+                              className="flex items-center gap-2 py-[7px] border-b border-border last:border-b-0"
+                            >
+                              <span className="text-[12px] text-foreground/45 shrink-0 w-[148px]">
+                                {row.label}
+                              </span>
+                              <span className="flex-1 border-b border-dotted border-border" />
+                              <span className="text-[13px] font-semibold text-primary tabular-nums shrink-0">
+                                {row.pct}%
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
+                          <span className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold">
+                            Overall Confidence
+                          </span>
+                          <span className="text-[26px] font-bold text-primary tabular-nums leading-none">
+                            {content.confidenceScore}
+                            <span className="text-[13px] text-primary/50 font-medium">%</span>
+                          </span>
+                        </div>
+                      </SummaryCard>
+                    )}
 
                     <SummaryCard className="p-5">
                       <div className="mb-4 pb-4 border-b border-border">
                         <SectionLabel>What Must Be True</SectionLabel>
                         <ul className="flex flex-col gap-1.5">
-                          {ASSUMPTIONS.map((item) => (
-                            <li key={item.text} className="flex items-center gap-2">
+                          {content.validationPlan.map((step) => (
+                            <li key={step.action} className="flex items-center gap-2">
                               <CheckCircle2 className="w-3 h-3 text-primary/70 shrink-0" />
                               <span className="text-[12px] text-foreground/55 leading-none">
-                                {item.text}
+                                {step.action}
                               </span>
                             </li>
                           ))}
@@ -357,31 +579,33 @@ export function SummaryStep() {
                       <div>
                         <SectionLabel>Biggest Risks</SectionLabel>
                         <ul className="flex flex-col gap-2">
-                          {CRITICAL_RISKS.map((item) => (
-                            <li key={item.text} className="flex items-center gap-2">
-                              <AlertTriangle
-                                className={cn(
-                                  'w-3 h-3 shrink-0',
-                                  item.severity === 'high'
-                                    ? 'text-amber-400'
-                                    : 'text-amber-600/55',
-                                )}
-                              />
-                              <span className="text-[12px] text-foreground/55 leading-none flex-1">
-                                {item.text}
-                              </span>
-                              <span
-                                className={cn(
-                                  'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-[0.06em] uppercase shrink-0',
-                                  item.severity === 'high'
-                                    ? 'bg-amber-500/12 text-amber-400 border border-amber-500/20'
-                                    : 'bg-amber-950/40 text-amber-700/60 border border-amber-900/40',
-                                )}
-                              >
-                                {item.severity === 'high' ? 'High' : 'Medium'}
-                              </span>
-                            </li>
-                          ))}
+                          {content.keyRisks.map((risk) => {
+                            const isHigh =
+                              risk.severity === 'critical' || risk.severity === 'high'
+                            return (
+                              <li key={risk.title} className="flex items-center gap-2">
+                                <AlertTriangle
+                                  className={cn(
+                                    'w-3 h-3 shrink-0',
+                                    isHigh ? 'text-amber-400' : 'text-amber-600/55',
+                                  )}
+                                />
+                                <span className="text-[12px] text-foreground/55 leading-none flex-1">
+                                  {risk.title}
+                                </span>
+                                <span
+                                  className={cn(
+                                    'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-[0.06em] uppercase shrink-0',
+                                    isHigh
+                                      ? 'bg-amber-500/12 text-amber-400 border border-amber-500/20'
+                                      : 'bg-amber-950/40 text-amber-700/60 border border-amber-900/40',
+                                  )}
+                                >
+                                  {isHigh ? 'High' : 'Medium'}
+                                </span>
+                              </li>
+                            )
+                          })}
                         </ul>
                       </div>
                     </SummaryCard>
@@ -420,72 +644,16 @@ export function SummaryStep() {
                           </li>
                         ))}
                       </ul>
-
-                      <div className="mt-5 pt-4 border-t border-border">
-                        <p className="text-[9px] font-semibold tracking-[0.2em] uppercase text-primary mb-1">
-                          Market Sizing Analysis
-                        </p>
-                        <p className="text-[11px] text-foreground/30 leading-relaxed mb-4">
-                          Xenysis estimates market potential using industry benchmarks, competitor
-                          positioning, market segmentation, and founder session inputs.
-                        </p>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mb-4">
-                          {MARKET_SIZING_CARDS.map((card) => (
-                            <div
-                              key={card.label}
-                              className="bg-background border border-border rounded-lg px-3.5 py-3"
-                            >
-                              <p className="text-[9px] font-bold tracking-[0.18em] uppercase text-primary mb-0.5">
-                                {card.label}
-                              </p>
-                              <p className="text-[10px] text-foreground/22 mb-2 leading-none">
-                                {card.abbr}
-                              </p>
-                              <p className="text-[26px] font-bold text-foreground tabular-nums leading-none tracking-tight mb-2">
-                                {card.value}
-                              </p>
-                              <p className="text-[11px] text-foreground/35 leading-snug">
-                                {card.description}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="text-[11px] text-foreground/35">
-                            Market Sizing Confidence
-                          </span>
-                          <span className="flex-1 border-b border-dotted border-border" />
-                          <span className="text-[13px] font-semibold text-primary tabular-nums">
-                            81%
-                          </span>
-                        </div>
-
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4">
-                          <span className="text-[10px] text-foreground/22">Based on:</span>
-                          {MARKET_SIZING_BASIS.map((item) => (
-                            <span
-                              key={item.text}
-                              className="text-[10px] text-foreground/30 flex items-center gap-1"
-                            >
-                              <span className="w-[3px] h-[3px] rounded-full bg-foreground/20 shrink-0" />
-                              {item.text}
-                            </span>
-                          ))}
-                        </div>
-
-                        <p className="text-[10px] text-foreground/20 leading-relaxed italic">
-                          Market sizing estimates are directional indicators, not guarantees. Actual
-                          market opportunity depends on execution, adoption, competition, and market
-                          conditions.
-                        </p>
-                      </div>
                     </SummaryCard>
                   )}
                 </div>
 
-                {/* ── Generate startup foundation ── */}
+                {/* ── v2.0: Validation Gaps ── */}
+                {content.validationGapSummary && (
+                  <ValidationGapList summary={content.validationGapSummary} />
+                )}
+
+                {/* ── Generate Startup Foundation CTA ── */}
                 <section>
                   <div
                     className="rounded-2xl border border-primary/20 bg-background overflow-hidden"
@@ -587,6 +755,34 @@ export function SummaryStep() {
             </main>
           </motion.div>
         )}
+
+        {/* ── Error state (rendered after loader exits) ── */}
+        {loaderDone && phase === 'error' && (
+          <motion.div
+            key="error"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            className="min-h-screen flex items-center justify-center px-6"
+          >
+            <div className="flex flex-col items-center gap-4 text-center max-w-[400px]">
+              <AlertTriangle className="w-8 h-8 text-amber-400" />
+              <h2 className="text-[20px] font-semibold text-foreground">Assessment Failed</h2>
+              <p className="text-[13px] text-foreground/45 leading-relaxed">
+                {errorMessage ??
+                  'An unexpected error occurred while generating your opportunity assessment.'}
+              </p>
+              <button
+                onClick={handleRefine}
+                className="mt-2 inline-flex items-center gap-2 px-5 py-3 bg-card border border-border rounded-xl text-[13px] font-semibold text-foreground/70 hover:bg-foreground/[0.04] transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                Return to Founder Session
+              </button>
+            </div>
+          </motion.div>
+        )}
+
       </AnimatePresence>
     </div>
   )
