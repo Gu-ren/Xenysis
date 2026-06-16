@@ -1,14 +1,12 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
-import type { WorkspaceGraph } from '@/modules/workspace/types'
 
 interface StartupState {
   startupId: string | null
-  graph: WorkspaceGraph | null
 }
 
 interface StartupActions {
-  setStartup: (startupId: string, graph: WorkspaceGraph) => void
+  setStartupId: (startupId: string) => void
   clear: () => void
 }
 
@@ -18,15 +16,12 @@ export const useStartupStore = create<StartupStore>()(
   persist(
     (set) => ({
       startupId: null,
-      graph: null,
-      setStartup: (startupId, graph) => set({ startupId, graph }),
-      clear: () => set({ startupId: null, graph: null }),
+      setStartupId: (startupId) => set({ startupId }),
+      clear: () => set({ startupId: null }),
     }),
     {
       name: 'xenysis-startup',
       storage: createJSONStorage(() => localStorage),
-      // graph excluded: WorkspaceAsset.icon is an ElementType (function ref) — not
-      // JSON-serializable. WorkspaceScreen re-fetches via getWorkspaceGraph(startupId).
       partialize: (state) => ({ startupId: state.startupId }),
     }
   )

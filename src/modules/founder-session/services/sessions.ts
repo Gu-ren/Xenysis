@@ -101,7 +101,7 @@ export interface ChatStreamEvent {
 
 export type OnChunk = (content: string) => void
 export type OnComplete = (jobId: string) => void
-export type OnError = (message: string) => void
+export type OnError = (message: string, status?: number) => void
 
 export async function streamChatMessage(
   startupId: string,
@@ -139,7 +139,7 @@ export async function streamChatMessage(
   )
 
   if (!res.ok || !res.body) {
-    callbacks.onError(`Request failed: ${res.status} ${res.statusText}`)
+    callbacks.onError(`Request failed: ${res.status} ${res.statusText}`, res.status)
     return
   }
 

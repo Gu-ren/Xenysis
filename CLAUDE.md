@@ -5,15 +5,13 @@
 
 ## Product
 
-Xenysis is an AI Technical Cofounder platform.
+Xenysis is an AI Technical Cofounder.
 
-Users go from:
+Its purpose: turn startup ideas into startup blueprints.
 
-Idea
-→ Founder Session
-→ Startup Architecture
-→ Workspace
-→ Deployment
+User journey:
+
+Landing Page → Sign Up / Login → Founder Session → Startup Blueprint
 
 ---
 
@@ -89,27 +87,41 @@ Rules:
 
 ## Application Layers
 
-Marketing Layer
-Founder Layer
-Workspace Layer
-Startup Layer
+Marketing Layer — `(marketing)` route group
+Founder Layer — `(founder)` route group
+
+---
+
+## Routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Landing page |
+| `/login` | Login |
+| `/signup` | Signup |
+| `/auth/callback` | Auth callback |
+| `/auth/confirm` | Auth confirmation |
+| `/founder-session` | Founder Session (welcome + discovery) |
+| `/session-summary` | Startup Blueprint |
 
 ---
 
 ## Navigation
 
-Global Rail:
-- Dashboard
-- Projects
-- Billing
-- Settings
+Marketing Nav:
+- Logo, Features, Pricing, Log In, Get Started
 
-Startup Sidebar:
-- Workspace (primary — canvas OS, absorbs Architecture, Database, Pages, Workflows as asset types)
-- Command Center (health dashboard, deployment status, AI activity)
-- Deploy
-- Logs
-- Settings
+Founder Layer:
+- Minimal header only (logo + session label)
+- No sidebar, no rail
 
-Note: Architecture, Database, Pages, and Workflows are NOT sidebar sections.
-They are asset nodeTypes rendered on the Workspace canvas and filtered via filter chips.
+---
+
+## Phase 1 Scope
+
+Keep only what supports the journey:
+Landing → Auth → Founder Session → Startup Blueprint
+
+Do NOT add Dashboard, Workspace, Command Center, Deploy, Logs, Billing, Settings, or any generation pipelines to this branch.
+
+The Startup Blueprint (`/session-summary`) uses static data. No backend generation in Phase 1.

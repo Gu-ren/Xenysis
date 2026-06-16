@@ -19,6 +19,7 @@ export function ConversationPane() {
   const sessionId = useFounderSessionStore((s) => s.sessionId)
   const pingExchange = useFounderSessionStore((s) => s.pingExchange)
   const isSessionComplete = useFounderSessionStore((s) => s.isSessionComplete)
+  const reset = useFounderSessionStore((s) => s.reset)
 
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
@@ -62,8 +63,13 @@ export function ConversationPane() {
         setIsStreaming(false)
         pingExchange()
       },
-      onError: () => {
+      onError: (_message, status) => {
         setIsStreaming(false)
+        if (status === 404) {
+          reset()
+          router.replace('/founder-session?fresh=true')
+          return
+        }
         setMessages((prev) => {
           const updated = [...prev]
           const last = updated[updated.length - 1]
@@ -74,7 +80,7 @@ export function ConversationPane() {
         })
       },
     })
-  }, [])
+  }, [pingExchange, reset, router])
 
   // Trigger initial AI question when session IDs are ready
   useEffect(() => {
