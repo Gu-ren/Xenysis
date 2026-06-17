@@ -3,9 +3,40 @@
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { ProgressRing } from '../ui/progress-ring'
-import { METRICS, BLUEPRINT_HEALTH_SCORE } from '../constants'
+import type { BlueprintMetrics, MetricCategory } from '../types/blueprint-api'
 
-export function MetricsSidebar() {
+interface MetricsSidebarProps {
+  metrics: BlueprintMetrics
+}
+
+const CATEGORY_COLORS: Record<MetricCategory, string> = {
+  acquisition: 'bg-emerald-500',
+  activation:  'bg-emerald-500',
+  retention:   'bg-emerald-500',
+  revenue:     'bg-emerald-500',
+  referral:    'bg-amber-500',
+  engagement:  'bg-amber-500',
+  operational: 'bg-amber-500',
+}
+
+// Phase 1 metrics are most defined (highest score); later phases lower.
+function phaseToScore(phase: number, totalPhases: number): number {
+  return Math.round(90 - ((phase - 1) / Math.max(totalPhases - 1, 1)) * 30)
+}
+
+export function MetricsSidebar({ metrics }: MetricsSidebarProps) {
+  const maxPhase = Math.max(...metrics.metrics.map((m) => m.phase), 1)
+
+  const sidebarMetrics = metrics.metrics.slice(0, 4).map((metric) => ({
+    label: metric.name,
+    val:   phaseToScore(metric.phase, maxPhase),
+    color: CATEGORY_COLORS[metric.category] ?? 'bg-emerald-500',
+  }))
+
+  const healthScore = Math.round(
+    sidebarMetrics.reduce((sum, m) => sum + m.val, 0) / Math.max(sidebarMetrics.length, 1),
+  )
+
   return (
     <aside className="relative">
       <div className="sticky top-[73px] h-fit space-y-5">
@@ -13,18 +44,18 @@ export function MetricsSidebar() {
           <p className="text-[10px] font-semibold tracking-[0.18em] text-zinc-600 uppercase mb-5 text-center">
             Blueprint Health
           </p>
-          <ProgressRing percentage={BLUEPRINT_HEALTH_SCORE} />
+          <ProgressRing percentage={healthScore} />
           <p className="text-center text-[10px] font-medium text-zinc-700 mt-3 uppercase tracking-widest">
             Overall Score
           </p>
         </div>
 
         <div className="space-y-4 px-1">
-          {METRICS.map((metric, i) => (
+          {sidebarMetrics.map((metric, i) => (
             <div key={metric.label}>
               <div className="flex justify-between text-[11px] font-medium mb-1.5">
-                <span className="text-zinc-500">{metric.label}</span>
-                <span className="text-zinc-300">{metric.val}%</span>
+                <span className="text-zinc-500 truncate mr-2">{metric.label}</span>
+                <span className="text-zinc-300 shrink-0">{metric.val}%</span>
               </div>
               <div className="h-[3px] w-full bg-white/[0.05] rounded-full overflow-hidden">
                 <motion.div

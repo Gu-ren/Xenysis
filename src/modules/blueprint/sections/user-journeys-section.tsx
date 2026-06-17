@@ -2,7 +2,11 @@ import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeading } from '../ui/section-heading'
 import { FieldLabel } from '../ui/field-label'
-import { ACTIVATION_STEPS, DAILY_STEPS } from '../constants'
+import type { BlueprintUserJourneys } from '../types/blueprint-api'
+
+interface UserJourneysSectionProps {
+  userJourneys: BlueprintUserJourneys
+}
 
 function JourneyStep({
   label,
@@ -46,40 +50,36 @@ function JourneyStep({
   )
 }
 
-export function UserJourneysSection() {
+export function UserJourneysSection({ userJourneys }: UserJourneysSectionProps) {
+  const { journeys } = userJourneys
+
   return (
     <section id="user-journeys">
       <SectionHeading number="07" title="User Journeys" />
 
-      <div className="grid md:grid-cols-2 gap-10">
-        <div>
-          <FieldLabel>Activation Journey</FieldLabel>
-          <div className="mt-5">
-            {ACTIVATION_STEPS.map((step, i) => (
-              <JourneyStep
-                key={step}
-                label={step}
-                isFirst={i === 0}
-                isLast={i === ACTIVATION_STEPS.length - 1}
-                variant={i === 0 ? 'active' : 'default'}
-              />
-            ))}
+      <div className={cn('grid gap-10', journeys.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-2')}>
+        {journeys.map((journey) => (
+          <div key={journey.personaName}>
+            <FieldLabel>{journey.personaName}</FieldLabel>
+            <p className="text-xs text-zinc-600 mb-5 italic">{journey.scenario}</p>
+            <div className="mt-2">
+              {journey.stages.map((stage, i) => (
+                <JourneyStep
+                  key={stage.stage}
+                  label={stage.action}
+                  isFirst={i === 0}
+                  isLast={i === journey.stages.length - 1}
+                  variant={i === 0 ? 'active' : 'default'}
+                />
+              ))}
+            </div>
+            {journey.keyInsight && (
+              <p className="text-xs text-zinc-600 italic mt-4 pl-9 leading-relaxed">
+                Key insight: {journey.keyInsight}
+              </p>
+            )}
           </div>
-        </div>
-
-        <div>
-          <FieldLabel>Daily Power Journey</FieldLabel>
-          <div className="mt-5">
-            {DAILY_STEPS.map((step, i) => (
-              <JourneyStep
-                key={step}
-                label={step}
-                isFirst={i === 0}
-                isLast={i === DAILY_STEPS.length - 1}
-              />
-            ))}
-          </div>
-        </div>
+        ))}
       </div>
     </section>
   )

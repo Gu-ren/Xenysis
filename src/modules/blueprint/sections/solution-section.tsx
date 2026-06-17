@@ -1,26 +1,30 @@
 import { SectionHeading } from '../ui/section-heading'
 import { FieldLabel } from '../ui/field-label'
-import { SOLUTION_STEPS, DIFFERENTIATORS } from '../constants'
+import type { BlueprintSolution } from '../types/blueprint-api'
 
-export function SolutionSection() {
+interface SolutionSectionProps {
+  solution: BlueprintSolution
+}
+
+export function SolutionSection({ solution }: SolutionSectionProps) {
   return (
     <section id="solution">
       <SectionHeading number="04" title="Solution" />
 
       <p className="text-2xl font-bold text-white mb-10 tracking-tight leading-tight">
-        One AI-powered operational layer for everything your startup needs to move fast.
+        {solution.description}
       </p>
 
       <div className="grid md:grid-cols-2 gap-10">
         <div className="space-y-6">
-          <FieldLabel>How It Works</FieldLabel>
+          <FieldLabel>Core Capabilities</FieldLabel>
           <div className="space-y-5">
-            {SOLUTION_STEPS.map((step) => (
-              <div key={step.n} className="flex gap-4">
+            {solution.coreCapabilities.map((capability, i) => (
+              <div key={capability} className="flex gap-4">
                 <span className="w-7 h-7 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0 text-emerald-500 font-semibold text-xs">
-                  {step.n}
+                  {i + 1}
                 </span>
-                <p className="text-sm text-zinc-300 pt-1 leading-relaxed">{step.t}</p>
+                <p className="text-sm text-zinc-300 pt-1 leading-relaxed">{capability}</p>
               </div>
             ))}
           </div>
@@ -30,7 +34,7 @@ export function SolutionSection() {
           <div>
             <FieldLabel>Key Differentiators</FieldLabel>
             <div className="flex flex-wrap gap-1.5 mt-3">
-              {DIFFERENTIATORS.map((tag) => (
+              {solution.differentiators.map((tag) => (
                 <span
                   key={tag}
                   className="px-3 py-1 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/20 text-xs text-emerald-400"
@@ -41,13 +45,14 @@ export function SolutionSection() {
             </div>
           </div>
 
-          <div>
-            <FieldLabel>Expected Outcome</FieldLabel>
-            <p className="text-sm text-zinc-500 leading-relaxed italic mt-1">
-              &ldquo;Teams using FlowSync report 35% faster sprint cycles and 60% reduction in
-              status meetings within the first 30 days.&rdquo;
-            </p>
-          </div>
+          {(solution.unfairAdvantage || solution.technologyApproach) && (
+            <div>
+              <FieldLabel>{solution.unfairAdvantage ? 'Unfair Advantage' : 'Technology Approach'}</FieldLabel>
+              <p className="text-sm text-zinc-500 leading-relaxed italic mt-1">
+                &ldquo;{solution.unfairAdvantage ?? solution.technologyApproach}&rdquo;
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </section>
