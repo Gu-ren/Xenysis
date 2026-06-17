@@ -19,16 +19,18 @@ export function ConversationPane() {
   const sessionId = useFounderSessionStore((s) => s.sessionId)
   const pingExchange = useFounderSessionStore((s) => s.pingExchange)
   const isSessionComplete = useFounderSessionStore((s) => s.isSessionComplete)
+  const setIsTyping = useFounderSessionStore((s) => s.setIsTyping)
+  const setStreamingInStore = useFounderSessionStore((s) => s.setIsStreaming)
   const reset = useFounderSessionStore((s) => s.reset)
 
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
 
-  const scrollEndRef = useRef<HTMLDivElement>(null)
+  const scrollEndRef   = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
-  const startupIdRef = useRef(startupId)
-  const sessionIdRef = useRef(sessionId)
+  const startupIdRef   = useRef(startupId)
+  const sessionIdRef   = useRef(sessionId)
 
   useEffect(() => { startupIdRef.current = startupId }, [startupId])
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
@@ -46,6 +48,7 @@ export function ConversationPane() {
       setMessages((prev) => [...prev, { role: 'user', content: text }])
     }
     setIsStreaming(true)
+    setStreamingInStore(true)
     setMessages((prev) => [...prev, { role: 'ai', content: '' }])
 
     await streamChatMessage(sid, sessId, text, {
@@ -61,10 +64,12 @@ export function ConversationPane() {
       },
       onComplete: () => {
         setIsStreaming(false)
+        setStreamingInStore(false)
         pingExchange()
       },
       onError: (_message, status) => {
         setIsStreaming(false)
+        setStreamingInStore(false)
         if (status === 404) {
           reset()
           router.replace('/founder-session?fresh=true')
@@ -93,8 +98,9 @@ export function ConversationPane() {
     const text = inputValue.trim()
     if (!text || isStreaming) return
     setInputValue('')
+    setIsTyping(false)
     doStream(text)
-  }, [inputValue, isStreaming, doStream])
+  }, [inputValue, isStreaming, doStream, setIsTyping])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -114,24 +120,11 @@ export function ConversationPane() {
         className="flex items-center justify-between px-5 shrink-0 border-b border-border"
         style={{ height: 44, background: 'rgba(255,255,255,0.01)' }}
       >
-        <motion.div className="flex gap-2">
-          <Image className="rounded-lg" src="/logo.svg" alt="Xenysis" width={28} height={28} priority />
-          <span className="text-[18px] font-semibold tracking-[-0.03em] text-foreground">
-            Xenysis
-          </span>
-        </motion.div>
+        
         <div className="flex items-center gap-3">
-          <span className="font-mono text-[11px] text-muted">Founder Session</span>
+          <span className=" text-[16px] text-white">Founder Session</span>
         </div>
-        {isSessionComplete && (
-          <button
-            onClick={handleEndSession}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-background text-[11px] font-semibold tracking-[-0.01em] rounded-[7px] hover:bg-primary-hover transition-colors shrink-0 cursor-pointer"
-          >
-            End Session
-            <ArrowRight className="w-3 h-3" />
-          </button>
-        )}
+        
       </div>
 
       {/* Scroll area */}
@@ -236,7 +229,7 @@ export function ConversationPane() {
         <div className="flex items-center gap-3 bg-card border border-border rounded-[10px] px-[15px] h-11 transition-[border-color,box-shadow] duration-200 focus-within:border-primary/30 focus-within:[box-shadow:0_0_0_3px_rgba(79,250,176,0.10)]">
           <input
             value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
+            onChange={(e) => { setInputValue(e.target.value); setIsTyping(e.target.value.length > 0) }}
             onKeyDown={handleKeyDown}
             placeholder="Answer or ask Xenysis anything…"
             disabled={isStreaming}

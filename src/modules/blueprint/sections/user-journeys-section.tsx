@@ -1,0 +1,86 @@
+import { CheckCircle2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { SectionHeading } from '../ui/section-heading'
+import { FieldLabel } from '../ui/field-label'
+import { ACTIVATION_STEPS, DAILY_STEPS } from '../constants'
+
+function JourneyStep({
+  label,
+  isFirst = false,
+  isLast = false,
+  variant = 'default',
+}: {
+  label: string
+  isFirst?: boolean
+  isLast?: boolean
+  variant?: 'active' | 'default'
+}) {
+  return (
+    <div className="flex gap-4 group">
+      <div className="flex flex-col items-center w-5">
+        <div
+          className={cn(
+            'w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 z-10',
+            variant === 'active'
+              ? 'bg-emerald-500 border-emerald-500 text-black'
+              : 'bg-[#0a0a0a] border-white/[0.1] group-hover:border-emerald-500/40 transition-colors',
+          )}
+        >
+          {variant === 'active' && <CheckCircle2 className="w-3.5 h-3.5" />}
+        </div>
+        {!isLast && (
+          <div className="w-px h-10 bg-white/[0.06] group-hover:bg-emerald-500/15 transition-colors" />
+        )}
+      </div>
+      <div className="pt-0.5 pb-1">
+        <p
+          className={cn(
+            'text-sm font-medium',
+            variant === 'active' ? 'text-emerald-500' : 'text-zinc-500',
+          )}
+        >
+          {label}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export function UserJourneysSection() {
+  return (
+    <section id="user-journeys">
+      <SectionHeading number="07" title="User Journeys" />
+
+      <div className="grid md:grid-cols-2 gap-10">
+        <div>
+          <FieldLabel>Activation Journey</FieldLabel>
+          <div className="mt-5">
+            {ACTIVATION_STEPS.map((step, i) => (
+              <JourneyStep
+                key={step}
+                label={step}
+                isFirst={i === 0}
+                isLast={i === ACTIVATION_STEPS.length - 1}
+                variant={i === 0 ? 'active' : 'default'}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel>Daily Power Journey</FieldLabel>
+          <div className="mt-5">
+            {DAILY_STEPS.map((step, i) => (
+              <JourneyStep
+                key={step}
+                label={step}
+                isFirst={i === 0}
+                isLast={i === DAILY_STEPS.length - 1}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

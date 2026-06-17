@@ -18,6 +18,8 @@ interface FounderSessionState {
   sessionId: string | null
   lastExchangeAt: number | null
   isSessionComplete: boolean
+  isTyping: boolean
+  isStreaming: boolean
 }
 
 interface FounderSessionActions {
@@ -32,6 +34,8 @@ interface FounderSessionActions {
   pingCanvas: () => void
   pingExchange: () => void
   setIsSessionComplete: (v: boolean) => void
+  setIsTyping: (v: boolean) => void
+  setIsStreaming: (v: boolean) => void
   reset: () => void
 }
 
@@ -49,6 +53,8 @@ const initialState: FounderSessionState = {
   sessionId: null,
   lastExchangeAt: null,
   isSessionComplete: false,
+  isTyping: false,
+  isStreaming: false,
 }
 
 export const useFounderSessionStore = create<FounderSessionStore>()(
@@ -67,6 +73,8 @@ export const useFounderSessionStore = create<FounderSessionStore>()(
       pingCanvas: () => set({ canvasPingAt: Date.now() }),
       pingExchange: () => set({ lastExchangeAt: Date.now() }),
       setIsSessionComplete: (isSessionComplete) => set({ isSessionComplete }),
+      setIsTyping: (isTyping) => set({ isTyping }),
+      setIsStreaming: (isStreaming) => set({ isStreaming }),
       reset: () => set(initialState),
     }),
     {
