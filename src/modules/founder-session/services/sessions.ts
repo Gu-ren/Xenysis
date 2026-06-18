@@ -26,6 +26,7 @@ export interface ApiSessionAnswer {
 
 export interface CreateSessionParams {
   idea: string
+  founderStage?: 'idea' | 'building' | 'revenue'
 }
 
 export interface AddAnswerParams {

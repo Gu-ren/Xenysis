@@ -29,8 +29,17 @@ const ExampleChip = ({ label, onClick }: ChipProps) => {
   )
 }
 
+type FounderStage = 'idea' | 'building' | 'revenue'
+
+const STAGE_OPTIONS: { value: FounderStage; label: string; description: string }[] = [
+  { value: 'idea',     label: 'Idea',     description: "Haven't spoken to customers yet" },
+  { value: 'building', label: 'Building', description: 'Actively developing and validating' },
+  { value: 'revenue',  label: 'Revenue',  description: 'Paying customers exist' },
+]
+
 export function WelcomeStep() {
   const [idea, setIdea] = React.useState('')
+  const [founderStage, setFounderStage] = React.useState<FounderStage>('building')
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement>(null)
@@ -50,7 +59,7 @@ export function WelcomeStep() {
     try {
       const name = trimmed.length <= 60 ? trimmed : trimmed.slice(0, 57) + '…'
       const startup = await createStartup({ name, description: trimmed })
-      const session = await createSession(startup.id, { idea: trimmed })
+      const session = await createSession(startup.id, { idea: trimmed, founderStage })
       storeSetIdea(trimmed)
       setStartupId(startup.id)
       setSessionId(session.id)
@@ -138,6 +147,38 @@ export function WelcomeStep() {
             Tell Xenysis what you&apos;re building. We&apos;ll research the market, challenge
             assumptions, and help determine whether the opportunity is worth pursuing.
           </motion.p>
+
+          {/* Stage Picker */}
+          <motion.div variants={itemVariants} className="w-full mb-6">
+            <p className="text-[11px] font-mono uppercase tracking-widest text-[rgba(255,255,255,0.3)] mb-3 text-left">
+              Where are you in your journey?
+            </p>
+            <div className="flex gap-2">
+              {STAGE_OPTIONS.map((stage) => (
+                <button
+                  key={stage.value}
+                  type="button"
+                  onClick={() => setFounderStage(stage.value)}
+                  className={cn(
+                    'flex-1 rounded-[10px] py-3 px-4 text-left border transition-all duration-200',
+                    founderStage === stage.value
+                      ? 'border-[rgba(68,229,169,0.5)] bg-[rgba(68,229,169,0.06)]'
+                      : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] hover:border-[rgba(255,255,255,0.15)]',
+                  )}
+                >
+                  <div className={cn(
+                    'text-[13px] font-semibold transition-colors duration-200',
+                    founderStage === stage.value ? 'text-[#44E5A9]' : 'text-[rgba(255,255,255,0.85)]',
+                  )}>
+                    {stage.label}
+                  </div>
+                  <div className="text-[11px] text-[rgba(255,255,255,0.4)] mt-0.5 leading-tight">
+                    {stage.description}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </motion.div>
 
           {/* Input Section */}
           <motion.div variants={itemVariants} className="w-full space-y-4 mb-6">
