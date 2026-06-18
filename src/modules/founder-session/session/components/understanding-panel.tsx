@@ -307,8 +307,9 @@ export function UnderstandingPanel() {
   // The orb is always alive. State changes only affect glow intensity.
   const orbState: OrbState = isStreaming ? 'THINKING' : 'AMBIENT'
 
-  const accentRgb: RGB = (isPreSession || overallConfidence >= 75)
-    ? [79, 250, 176]
+  const accentRgb: RGB = isPreSession
+    ? [80, 100, 95]
+    : overallConfidence >= 75 ? [79, 250, 176]
     : overallConfidence >= 40 ? [245, 158, 11] : [239, 68, 68]
   const accentColor    = `rgb(${accentRgb[0]},${accentRgb[1]},${accentRgb[2]})`
   const focusLabel     = weakestCategory ? FOCUS_LABEL[weakestCategory] : null
