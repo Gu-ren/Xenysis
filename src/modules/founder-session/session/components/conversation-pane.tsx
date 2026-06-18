@@ -226,24 +226,47 @@ export function ConversationPane() {
           )}
         </AnimatePresence>
 
+        <AnimatePresence>
+          {isSessionComplete && (
+            <motion.div
+              initial={{ opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 2 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center gap-2 mb-2 pl-1"
+            >
+              <span
+                className="inline-block w-[5px] h-[5px] rounded-full shrink-0"
+                style={{ background: 'var(--primary)', boxShadow: '0 0 6px rgba(79,250,176,0.6)' }}
+              />
+              <span
+                className="font-mono text-[10px]"
+                style={{ color: 'var(--primary)', letterSpacing: '0.04em' }}
+              >
+                Discovery Complete — Generate your Founder Report to continue.
+              </span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex items-center gap-3 bg-card border border-border rounded-[10px] px-[15px] h-11 transition-[border-color,box-shadow] duration-200 focus-within:border-primary/30 focus-within:[box-shadow:0_0_0_3px_rgba(79,250,176,0.10)]">
           <input
             value={inputValue}
             onChange={(e) => { setInputValue(e.target.value); setIsTyping(e.target.value.length > 0) }}
             onKeyDown={handleKeyDown}
             placeholder="Answer or ask Xenysis anything…"
-            disabled={isStreaming}
+            disabled={isStreaming || isSessionComplete}
             className="flex-1 bg-transparent border-none outline-none text-foreground text-[13px] tracking-[-0.01em] placeholder:text-muted/50 disabled:opacity-50"
             style={{ caretColor: 'var(--primary)' }}
           />
           <button
             onClick={handleSend}
-            disabled={isStreaming || !inputValue.trim()}
+            disabled={isStreaming || isSessionComplete || !inputValue.trim()}
             aria-label="Send message"
             className="w-[27px] h-[27px] flex items-center justify-center rounded-md bg-transparent border-none cursor-pointer shrink-0 p-0 transition-colors duration-150 disabled:cursor-not-allowed"
             style={{
               color:
-                inputValue.trim() && !isStreaming ? 'var(--primary)' : 'rgba(85,85,85,1)',
+                inputValue.trim() && !isStreaming && !isSessionComplete ? 'var(--primary)' : 'rgba(85,85,85,1)',
             }}
           >
             <Send style={{ width: 14, height: 14 }} strokeWidth={1.8} />

@@ -6,6 +6,17 @@ export type AssessmentTier = 'unknown' | 'gap' | 'assumption_based' | 'validated
 
 export type QuestioningMode = 'discovery' | 'gap_identification'
 
+// v2.1 — declared at session creation, immutable.
+//   idea:     Pre-validation — founder has not spoken to customers yet.
+//   building: Active development — some validation underway.
+//   revenue:  Revenue-stage — paying customers exist.
+export type FounderStage = 'idea' | 'building' | 'revenue'
+
+// v2.1 — determined at session completion.
+//   hypothesis: Completed via the idea-stage lower threshold. Blueprint is a thinking tool.
+//   validated:  All required categories reached the full 80% threshold.
+export type BlueprintMode = 'hypothesis' | 'validated'
+
 export type UnderstandingCategory =
   | 'problem'
   | 'customer'
@@ -15,6 +26,7 @@ export type UnderstandingCategory =
   | 'competition'
   | 'risks'
   | 'founder_fit'
+  | 'supply_side'
 
 export interface CategoryState {
   confidence: number
@@ -47,6 +59,15 @@ export interface FounderUnderstanding {
   focusHistory: string[]
   validationGaps: UnderstandingCategory[]
   questioningMode: QuestioningMode
+  // v2.1 fields
+  founderStage: FounderStage
+  blueprintMode: BlueprintMode
+  gapsInBlueprint: UnderstandingCategory[]
+  multiIcpDetected: boolean
+  // v2.2 PR2: separate from multiIcpDetected — true for two-sided platform businesses
+  marketplaceDetected: boolean
+  pivotDetected: boolean
+  pivotCount: number
 }
 
 const EMPTY_CATEGORY: CategoryState = {
@@ -73,6 +94,7 @@ export const EMPTY_UNDERSTANDING: FounderUnderstanding = {
     competition: { ...EMPTY_CATEGORY },
     risks:       { ...EMPTY_CATEGORY },
     founder_fit: { ...EMPTY_CATEGORY },
+    supply_side: { ...EMPTY_CATEGORY },
   },
   overallConfidence: 0,
   isComplete:        false,
@@ -81,22 +103,30 @@ export const EMPTY_UNDERSTANDING: FounderUnderstanding = {
   focusHistory:      [],
   validationGaps:    [],
   questioningMode:   'discovery',
+  founderStage:      'building',
+  blueprintMode:     'validated',
+  gapsInBlueprint:   [],
+  multiIcpDetected:    false,
+  marketplaceDetected: false,
+  pivotDetected:       false,
+  pivotCount:          0,
 }
 
 export const CATEGORY_DISPLAY: Record<UnderstandingCategory, { label: string; required: boolean }> = {
-  problem:     { label: 'Problem Identified',    required: true  },
-  customer:    { label: 'Customer Identified',   required: true  },
-  solution:    { label: 'Solution Understood',   required: true  },
-  market:      { label: 'Market Understood',     required: false },
-  pricing:     { label: 'Pricing Identified',    required: false },
-  competition: { label: 'Competition Validated', required: false },
-  risks:       { label: 'Risks Clarified',       required: false },
-  founder_fit: { label: 'Founder Fit Assessed',  required: false },
+  problem:     { label: 'Problem Identified',        required: true  },
+  customer:    { label: 'Customer Identified',       required: true  },
+  solution:    { label: 'Solution Understood',       required: true  },
+  market:      { label: 'Market Understood',         required: false },
+  pricing:     { label: 'Pricing Identified',        required: false },
+  competition: { label: 'Competition Validated',     required: false },
+  risks:       { label: 'Risks Clarified',           required: false },
+  founder_fit: { label: 'Founder Fit Assessed',      required: false },
+  supply_side: { label: 'Supply Side Understood',    required: false },
 }
 
 export const ORDERED_CATEGORIES: UnderstandingCategory[] = [
   'problem', 'customer', 'solution',
-  'market', 'pricing', 'competition', 'risks', 'founder_fit',
+  'market', 'pricing', 'competition', 'risks', 'founder_fit', 'supply_side',
 ]
 
 // Human-readable focus area names for the "Current Focus" card.
@@ -110,4 +140,5 @@ export const FOCUS_LABEL: Record<UnderstandingCategory, string> = {
   competition: 'Competition Validation',
   risks:       'Risk Assessment',
   founder_fit: 'Founder Fit',
+  supply_side: 'Supply Side Discovery',
 }

@@ -404,26 +404,70 @@ export function UnderstandingPanel() {
         <div style={{ position: 'relative', width: CANVAS_SIZE, height: CANVAS_SIZE, flexShrink: 0 }}>
           <OrbCanvas orbState={orbState} rgb={accentRgb} />
           <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 5, pointerEvents: 'none' }}>
-            <motion.p
-              key={overallConfidence}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              style={{
-                fontFamily: 'Geist, ui-sans-serif, sans-serif',
-                fontSize: 46,
-                fontWeight: 600,
-                color: isPreSession ? 'rgba(255,255,255,0.18)' : accentColor,
-                lineHeight: 1,
-                letterSpacing: '-0.04em',
-                textAlign: 'center',
-              }}
-            >
-              {overallConfidence}%
-            </motion.p>
-            <p style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 9, color: 'rgba(255,255,255,0.30)', textTransform: 'uppercase', letterSpacing: '0.20em', textAlign: 'center' }}>
-              understood
-            </p>
+            <AnimatePresence mode="wait">
+              {isComplete ? (
+                <motion.div
+                  key="complete-orb"
+                  initial={{ opacity: 0, scale: 0.85 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.85 }}
+                  transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}
+                >
+                  <span style={{
+                    fontFamily: 'Geist, ui-sans-serif, sans-serif',
+                    fontSize: 44,
+                    fontWeight: 600,
+                    color: accentColor,
+                    lineHeight: 1,
+                    letterSpacing: '-0.02em',
+                  }}>
+                    ✓
+                  </span>
+                  <span style={{
+                    fontFamily: 'IBM Plex Mono, monospace',
+                    fontSize: 9,
+                    color: 'rgba(255,255,255,0.40)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.20em',
+                    textAlign: 'center',
+                  }}>
+                    Discovery Complete
+                  </span>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="progress-orb"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.3 }}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}
+                >
+                  <motion.p
+                    key={overallConfidence}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    style={{
+                      fontFamily: 'Geist, ui-sans-serif, sans-serif',
+                      fontSize: 46,
+                      fontWeight: 600,
+                      color: isPreSession ? 'rgba(255,255,255,0.18)' : accentColor,
+                      lineHeight: 1,
+                      letterSpacing: '-0.04em',
+                      textAlign: 'center',
+                      margin: 0,
+                    }}
+                  >
+                    {overallConfidence}%
+                  </motion.p>
+                  <p style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 9, color: 'rgba(255,255,255,0.30)', textTransform: 'uppercase', letterSpacing: '0.20em', textAlign: 'center', margin: 0 }}>
+                    understood
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
