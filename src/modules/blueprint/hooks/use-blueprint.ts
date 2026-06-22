@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useStartupStore } from '@/store/startup'
+import { useFounderSessionStore } from '@/store/founder-session'
 import { fetchCurrentBlueprint } from '../services/blueprint'
 import type { BlueprintApiResponse } from '../types/blueprint-api'
 
@@ -13,8 +14,11 @@ interface UseBlueprintResult {
 }
 
 export function useBlueprint(overrideStartupId?: string | null): UseBlueprintResult {
-  const storeStartupId = useStartupStore((s) => s.startupId)
-  const startupId = overrideStartupId ?? storeStartupId
+  const storeStartupId   = useStartupStore((s) => s.startupId)
+  const sessionStartupId = useFounderSessionStore((s) => s.startupId)
+  // useStartupStore is the primary source; fall back to the founder-session store
+  // so the blueprint page works on direct refresh after a session.
+  const startupId = overrideStartupId ?? storeStartupId ?? sessionStartupId
 
   const [blueprint, setBlueprint] = useState<BlueprintApiResponse | null>(null)
   const [loading, setLoading]     = useState(true)

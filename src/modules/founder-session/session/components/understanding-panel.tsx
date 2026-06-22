@@ -3,9 +3,10 @@
 import * as React from 'react'
 import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useUnderstanding } from '../hooks/use-understanding'
+import { useGenerateReport } from '../hooks/use-generate-report'
 import { FOCUS_LABEL } from '../../types/understanding'
 import { useFounderSessionStore } from '@/store/founder-session'
 
@@ -302,12 +303,22 @@ export function UnderstandingPanel() {
   const isStreaming   = useFounderSessionStore((s) => s.isStreaming)
   const { overallConfidence, isComplete, weakestCategory } = understanding
 
+  const { stage, stageLabel, error: generateError, generate } = useGenerateReport()
+  const isGenerating = stage === 'generating-oa' || stage === 'generating-blueprint'
+
+  const handleGenerateReport = async () => {
+    const result = await generate()
+    if (result === 'complete') router.push('/session-summary')
+  }
+
   const isPreSession = weakestCategory === null && overallConfidence === 0
 
   // The orb is always alive. State changes only affect glow intensity.
   const orbState: OrbState = isStreaming ? 'THINKING' : 'AMBIENT'
 
-  const accentRgb: RGB = isPreSession
+  const accentRgb: RGB = isComplete
+    ? [79, 250, 176]
+    : isPreSession
     ? [80, 100, 95]
     : overallConfidence >= 75 ? [79, 250, 176]
     : overallConfidence >= 40 ? [245, 158, 11] : [239, 68, 68]
@@ -533,17 +544,42 @@ export function UnderstandingPanel() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="shrink-0 px-5 py-4"
+            className="shrink-0 px-5 py-4 flex flex-col gap-2"
             style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
           >
             <button
-              onClick={() => router.push('/session-summary')}
-              className="w-full flex items-center justify-center gap-2 rounded-[8px] h-9 font-semibold tracking-[-0.01em] transition-all duration-200 cursor-pointer"
-              style={{ fontSize: 13, background: '#4FFAB0', color: '#0A0A0A' }}
+              onClick={handleGenerateReport}
+              disabled={isGenerating}
+              className="w-full flex items-center justify-center gap-2 rounded-[8px] h-9 font-semibold tracking-[-0.01em] transition-all duration-200"
+              style={{
+                fontSize: 13,
+                background: isGenerating ? 'rgba(79,250,176,0.15)' : '#4FFAB0',
+                color: isGenerating ? '#4FFAB0' : '#0A0A0A',
+                cursor: isGenerating ? 'default' : 'pointer',
+                border: isGenerating ? '1px solid rgba(79,250,176,0.25)' : 'none',
+              }}
             >
-              Generate Founder Report
-              <ArrowRight className="w-3.5 h-3.5" />
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  {stageLabel}
+                </>
+              ) : (
+                <>
+                  Generate Founder Report
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </>
+              )}
             </button>
+
+            {generateError && (
+              <p
+                className="text-center font-mono"
+                style={{ fontSize: 11, color: '#EF4444', letterSpacing: '0.02em' }}
+              >
+                {generateError}
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

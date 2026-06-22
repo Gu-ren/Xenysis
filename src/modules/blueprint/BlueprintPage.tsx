@@ -20,6 +20,7 @@ import { RoadmapSection } from './sections/roadmap-section'
 import { RisksSection } from './sections/risks-section'
 import { useActiveSection } from './hooks/use-active-section'
 import { useBlueprint } from './hooks/use-blueprint'
+import { exportBlueprintAsPdf } from './utils/export-blueprint'
 
 function trackEvent(event: string): void {
   console.log('[Xenysis Analytics]', event)
@@ -104,6 +105,16 @@ export function BlueprintPage() {
     setIsWaitlistOpen(true)
   }
 
+  const handleExport = async () => {
+    if (!blueprint) return
+    trackEvent('blueprint_exported')
+    const slug = (blueprint.content.overview.tagline ?? 'startup-blueprint')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '')
+    await exportBlueprintAsPdf(blueprint.content, `${slug}-blueprint`)
+  }
+
   if (loading) return <BlueprintSkeleton />
 
   if (error) {
@@ -116,7 +127,7 @@ export function BlueprintPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-emerald-500/20 font-sans">
-      <BlueprintHeader onOpenWaitlist={handleOpenWaitlist} />
+      <BlueprintHeader onOpenWaitlist={handleOpenWaitlist} onExport={handleExport} />
 
       <div className="max-w-[1600px] mx-auto grid grid-cols-[200px_1fr_220px] gap-8 px-8 py-10">
         <NavSidebar activeSection={activeSection} />

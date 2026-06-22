@@ -2,9 +2,10 @@ import { Download, ArrowRight } from 'lucide-react'
 
 interface BlueprintHeaderProps {
   onOpenWaitlist: () => void
+  onExport: () => void
 }
 
-export function BlueprintHeader({ onOpenWaitlist }: BlueprintHeaderProps) {
+export function BlueprintHeader({ onOpenWaitlist, onExport }: BlueprintHeaderProps) {
   return (
     <header className="sticky top-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/[0.06] px-8 py-4">
       <div className="max-w-[1600px] mx-auto flex items-center justify-between">
@@ -24,7 +25,10 @@ export function BlueprintHeader({ onOpenWaitlist }: BlueprintHeaderProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button className="h-8 px-3.5 text-[13px] font-medium text-zinc-400 border border-white/[0.08] hover:border-white/[0.14] hover:text-zinc-200 rounded-lg transition-all flex items-center gap-1.5">
+          <button
+            onClick={onExport}
+            className="h-8 px-3.5 text-[13px] font-medium text-zinc-400 border border-white/[0.08] hover:border-white/[0.14] hover:text-zinc-200 rounded-lg transition-all flex items-center gap-1.5"
+          >
             <Download className="w-3.5 h-3.5" />
             Export Blueprint
           </button>
