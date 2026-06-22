@@ -26,6 +26,7 @@ export interface ApiSessionAnswer {
 
 export interface CreateSessionParams {
   idea: string
+  founderStage?: 'idea' | 'building' | 'revenue'
 }
 
 export interface AddAnswerParams {
@@ -92,6 +93,22 @@ export async function fetchUnderstanding(
   return data
 }
 
+// Beta early-exit: founder elects to generate an assessment before natural session completion.
+// Validates eligibility server-side, forces isComplete = true with blueprintMode = 'hypothesis'.
+export async function requestAssessment(
+  startupId: string,
+  sessionId: string,
+): Promise<FounderUnderstanding> {
+  if (!hasBackend) {
+    return { ...EMPTY_UNDERSTANDING, isComplete: true, blueprintMode: 'hypothesis' }
+  }
+  const { data } = await apiPost<Record<string, never>, { data: { understanding: FounderUnderstanding } }>(
+    `/api/v1/startups/${startupId}/sessions/${sessionId}/request-assessment`,
+    {},
+  )
+  return data.understanding
+}
+
 // ── SSE chat stream ───────────────────────────────────────────────────────────
 
 export interface ChatStreamEvent {
@@ -101,7 +118,7 @@ export interface ChatStreamEvent {
 
 export type OnChunk = (content: string) => void
 export type OnComplete = (jobId: string) => void
-export type OnError = (message: string) => void
+export type OnError = (message: string, status?: number) => void
 
 export async function streamChatMessage(
   startupId: string,
@@ -139,7 +156,7 @@ export async function streamChatMessage(
   )
 
   if (!res.ok || !res.body) {
-    callbacks.onError(`Request failed: ${res.status} ${res.statusText}`)
+    callbacks.onError(`Request failed: ${res.status} ${res.statusText}`, res.status)
     return
   }
 

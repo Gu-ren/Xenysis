@@ -9,7 +9,6 @@ import { AuthInput } from '../../components/auth-input';
 import { GoogleButton } from '../../components/google-button';
 import { supabase } from '@/services/auth/client';
 import { signInWithGoogle } from '@/services/auth';
-import { fetchStartups } from '@/modules/projects/services/startups';
 
 export function SignupForm() {
   const router = useRouter();
@@ -29,9 +28,7 @@ export function SignupForm() {
     if (!sent) return;
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
-        fetchStartups()
-          .catch(() => [])
-          .then((startups) => router.push(startups.length === 0 ? '/founder-session' : '/dashboard'));
+        router.push('/founder-session')
       }
     });
     return () => subscription.unsubscribe();

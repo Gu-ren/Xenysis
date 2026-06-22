@@ -1,789 +1,393 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 import {
+  ArrowLeft,
   CheckCircle2,
   AlertTriangle,
-  ArrowRight,
-  RefreshCw,
-  ChevronDown,
+  Users,
+  Map,
+  Layers,
+  DollarSign,
+  Target,
+  Package,
+  TrendingUp,
+  Loader2,
 } from 'lucide-react'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
 import { useFounderSessionStore } from '@/store/founder-session'
-import { LoaderScreen, type LoaderStageEntry } from './components/loader-screen'
-import { ScoreBreakdownPanel } from './components/ScoreBreakdownPanel'
-import { ConfidenceBreakdownPanel } from './components/ConfidenceBreakdownPanel'
-import { ValidationGapList } from './components/ValidationGapList'
-import { TRUST_SIGNALS, FOUNDATION_CATEGORIES } from './summary.constants'
-import {
-  fetchOpportunityAssessment,
-  streamOpportunityGeneration,
-  ApiError,
-  type OpportunityAssessmentContent,
-  type OpportunityAssessmentResponse,
-  type SSEStageEvent,
-  type Rating,
-  type RecommendationAction,
-  type KeyRisk,
-} from '../services/opportunity'
+import { useBlueprint } from '@/modules/blueprint/hooks/use-blueprint'
+import type { BlueprintContent } from '@/modules/blueprint/types/blueprint-api'
 
-// ── Data helpers ──────────────────────────────────────────────────────────────
+// ── Primitives ────────────────────────────────────────────────────────────────
 
-function verdictLabel(action: RecommendationAction): string {
-  switch (action) {
-    case 'proceed':              return 'Strong Opportunity'
-    case 'proceed_with_caution': return 'Proceed With Caution'
-    case 'validate_first':       return 'Validate Before Building'
-    case 'pivot':                return 'Consider a Pivot'
-    case 'pass':                 return 'Pass on This Idea'
-  }
-}
-
-function ratingLabel(r: Rating): string {
-  return r === 'very_high' ? 'Very High' : r.charAt(0).toUpperCase() + r.slice(1)
-}
-
-function toSentences(text: string, max: number): string[] {
-  const matches = text.match(/[^.!?]+[.!?]*/g) ?? [text]
-  return matches
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .slice(0, max)
-}
-
-function topRisk(risks: KeyRisk[]): KeyRisk | undefined {
-  const order: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
-  return [...risks].sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3))[0]
-}
-
-// ── Shared primitives ─────────────────────────────────────────────────────────
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="block text-[10px] font-semibold tracking-[0.2em] uppercase text-primary mb-3">
-      {children}
-    </span>
-  )
-}
-
-function SummaryCard({
+function Section({
+  icon,
+  label,
   children,
   className,
 }: {
+  icon: React.ReactNode
+  label: string
   children: React.ReactNode
   className?: string
 }) {
   return (
-    <div className={cn('bg-card border border-border rounded-xl', className)}>
+    <div className={cn('bg-card border border-border rounded-xl p-6', className)}>
+      <div className="flex items-center gap-2.5 mb-4">
+        <span className="text-primary">{icon}</span>
+        <span className="text-[10px] font-semibold tracking-[0.2em] uppercase text-primary">
+          {label}
+        </span>
+      </div>
       {children}
     </div>
   )
 }
 
-function LabelValueItem({ label, value }: { label: string; value: string }) {
+// ── Blueprint content mapped from API ────────────────────────────────────────
+
+function BlueprintGrid({ content }: { content: BlueprintContent }) {
+  const primaryStream =
+    content.businessModel.revenueStreams.find((r) => r.isPrimary) ??
+    content.businessModel.revenueStreams[0]
+
   return (
-    <li>
-      <p className="text-[9px] text-foreground/25 uppercase tracking-widest font-semibold mb-0.5">
-        {label}
-      </p>
-      <p className="text-[13px] text-foreground/70 leading-snug font-medium">{value}</p>
-    </li>
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+      {/* Product Overview */}
+      <Section icon={<Package className="w-4 h-4" />} label="Product Overview">
+        <p className="text-[14px] font-semibold text-foreground mb-2">
+          {content.overview.tagline}
+        </p>
+        <p className="text-[13px] text-foreground/50 leading-relaxed">
+          {content.overview.coreValueProposition}
+        </p>
+      </Section>
+
+      {/* Problem */}
+      <Section icon={<Target className="w-4 h-4" />} label="Problem">
+        <p className="text-[13px] text-foreground/55 leading-relaxed mb-4">
+          {content.problem.statement}
+        </p>
+        <ul className="flex flex-col gap-2">
+          {content.problem.painPoints.map((point) => (
+            <li key={point} className="flex items-start gap-2">
+              <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0 mt-[2px]" />
+              <span className="text-[12px] text-foreground/50 leading-snug">{point}</span>
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      {/* Customer */}
+      <Section icon={<Users className="w-4 h-4" />} label="Customer">
+        <p className="text-[9px] text-foreground/25 uppercase tracking-widest font-semibold mb-1">
+          Ideal Customer Profile
+        </p>
+        <p className="text-[14px] font-semibold text-foreground mb-3">
+          {content.customer.icp.title}
+        </p>
+        <p className="text-[13px] text-foreground/50 leading-relaxed mb-4">
+          {content.customer.icp.description}
+        </p>
+        {content.customer.segments[0] && (
+          <ul className="flex flex-col gap-1.5">
+            {content.customer.segments[0].characteristics.map((c) => (
+              <li key={c} className="flex items-center gap-2">
+                <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
+                <span className="text-[12px] text-foreground/55">{c}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Section>
+
+      {/* Solution */}
+      <Section icon={<Layers className="w-4 h-4" />} label="Solution">
+        <p className="text-[13px] font-semibold text-foreground mb-4">
+          {content.solution.description}
+        </p>
+        <div className="flex flex-col gap-3">
+          {content.solution.coreCapabilities.slice(0, 3).map((capability, i) => (
+            <div key={capability} className="pl-3 border-l border-primary/30">
+              <p className="text-[11px] font-semibold text-primary mb-0.5">Step {i + 1}</p>
+              <p className="text-[12px] text-foreground/45 leading-snug">{capability}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* Business Model */}
+      <Section icon={<DollarSign className="w-4 h-4" />} label="Business Model">
+        <div className="flex flex-col gap-4">
+          {(
+            [
+              {
+                label: 'Revenue Type',
+                value: primaryStream
+                  ? primaryStream.type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+                  : '—',
+              },
+              { label: 'Pricing',        value: primaryStream?.pricingHypothesis ?? '—' },
+              { label: 'GTM Motion',     value: content.businessModel.gtmMotion.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) },
+              { label: 'Primary Channel', value: content.businessModel.keyChannels[0] ?? '—' },
+            ] as const
+          ).map((row) => (
+            <div key={row.label}>
+              <p className="text-[9px] text-foreground/25 uppercase tracking-widest font-semibold mb-0.5">
+                {row.label}
+              </p>
+              <p className="text-[13px] text-foreground/65 font-medium">{row.value}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* Personas */}
+      <Section icon={<Users className="w-4 h-4" />} label="Personas">
+        <div className="flex flex-col gap-4">
+          {content.personas.personas.map((persona) => (
+            <div
+              key={persona.name}
+              className="pb-4 border-b border-border last:border-b-0 last:pb-0"
+            >
+              <p className="text-[13px] font-semibold text-foreground mb-0.5">{persona.name}</p>
+              <p className="text-[12px] text-foreground/45 mb-1.5">{persona.role}</p>
+              {persona.goals[0] && (
+                <p className="text-[11px] text-foreground/30">
+                  <span className="text-[9px] text-foreground/20 uppercase tracking-widest font-semibold">
+                    Goal:{' '}
+                  </span>
+                  {persona.goals[0]}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* User Journey */}
+      {content.userJourneys.journeys[0] && (
+        <Section icon={<Map className="w-4 h-4" />} label="User Journey">
+          <div className="flex flex-col">
+            {content.userJourneys.journeys[0].stages.map((stage, i) => (
+              <div
+                key={stage.stage}
+                className="flex items-start gap-3 py-3 border-b border-border last:border-b-0"
+              >
+                <span className="w-6 h-6 rounded-full bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0 mt-[1px]">
+                  <span className="text-[10px] font-bold text-primary tabular-nums">{i + 1}</span>
+                </span>
+                <div>
+                  <p className="text-[12px] font-semibold text-foreground leading-none mb-1">
+                    {stage.stage}
+                  </p>
+                  <p className="text-[12px] text-foreground/40 leading-snug">{stage.action}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
+
+      {/* MVP Scope */}
+      <Section icon={<CheckCircle2 className="w-4 h-4" />} label="MVP Scope">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div>
+            <p className="text-[9px] text-foreground/25 uppercase tracking-widest font-semibold mb-3">
+              In Scope
+            </p>
+            <ul className="flex flex-col gap-2">
+              {content.mvpScope.scope
+                .filter((s) => s.priority === 'must_have' || s.priority === 'should_have')
+                .map((item) => (
+                  <li key={item.feature} className="flex items-start gap-2">
+                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0 mt-[2px]" />
+                    <span className="text-[12px] text-foreground/60 leading-snug">{item.feature}</span>
+                  </li>
+                ))}
+            </ul>
+          </div>
+          <div>
+            <p className="text-[9px] text-foreground/25 uppercase tracking-widest font-semibold mb-3">
+              Out of Scope
+            </p>
+            <ul className="flex flex-col gap-2">
+              {content.mvpScope.outOfScope.map((item) => (
+                <li key={item} className="flex items-start gap-2">
+                  <span className="w-3 h-[1px] bg-foreground/20 shrink-0 mt-[7px]" />
+                  <span className="text-[12px] text-foreground/30 leading-snug">{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </Section>
+
+      {/* Risks — full width */}
+      <Section
+        icon={<TrendingUp className="w-4 h-4" />}
+        label="Risks"
+        className="lg:col-span-2"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {content.risks.risks.map((risk) => (
+            <div
+              key={risk.title}
+              className={cn(
+                'rounded-lg border p-4',
+                risk.severity === 'high' || risk.severity === 'critical'
+                  ? 'border-amber-500/20 bg-amber-500/[0.04]'
+                  : 'border-border bg-background',
+              )}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle
+                  className={cn(
+                    'w-3.5 h-3.5 shrink-0',
+                    risk.severity === 'high' || risk.severity === 'critical'
+                      ? 'text-amber-400'
+                      : 'text-amber-600/60',
+                  )}
+                />
+                <span className="text-[12px] font-semibold text-foreground/75 flex-1">
+                  {risk.title}
+                </span>
+                <span
+                  className={cn(
+                    'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-[0.06em] uppercase shrink-0',
+                    risk.severity === 'high' || risk.severity === 'critical'
+                      ? 'bg-amber-500/12 text-amber-400 border border-amber-500/20'
+                      : 'bg-amber-950/40 text-amber-700/60 border border-amber-900/40',
+                  )}
+                >
+                  {risk.severity}
+                </span>
+              </div>
+              <p className="text-[12px] text-foreground/40 leading-snug">{risk.mitigation}</p>
+            </div>
+          ))}
+        </div>
+      </Section>
+    </div>
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 
 export function SummaryStep() {
   const router = useRouter()
-  const { idea, startupId, sessionId } = useFounderSessionStore()
-
-  const [loaderDone, setLoaderDone]     = useState(false)
-  const [stages, setStages]             = useState<LoaderStageEntry[]>([])
-  const [progress, setProgress]         = useState(0)
-  const [phase, setPhase]               = useState<'generating' | 'done' | 'error'>('generating')
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
-  const [assessment, setAssessment]     = useState<OpportunityAssessmentResponse | null>(null)
-  const [methodologyOpen, setMethodologyOpen]       = useState(false)
-  const [scoreBreakdownOpen, setScoreBreakdownOpen] = useState(false)
-
-  const hasStarted = useRef(false)
-
-  // Upsert a stage entry by stageId — pending events are not shown in the UI.
-  const upsertStage = useCallback((event: SSEStageEvent) => {
-    if (event.state === 'pending') return
-    setStages((prev) => {
-      const idx   = prev.findIndex((s) => s.stageId === event.stageId)
-      const entry: LoaderStageEntry = {
-        stageId: event.stageId,
-        label:   event.label,
-        state:   event.state as 'active' | 'done',
-      }
-      if (idx >= 0) {
-        const next = [...prev]
-        next[idx]  = entry
-        return next
-      }
-      return [...prev, entry]
-    })
-  }, [])
-
-  useEffect(() => {
-    if (hasStarted.current) return
-    hasStarted.current = true
-
-    async function init() {
-      // Guard: store must have both IDs before generation can start.
-      if (!startupId || !sessionId) {
-        setErrorMessage(
-          'Session context is missing. Return to the founder session to continue.',
-        )
-        setPhase('error')
-        return
-      }
-
-      // Fast path: assessment already exists (page refresh / revisit).
-      // Skip the loader entirely — render the report immediately.
-      try {
-        const existing = await fetchOpportunityAssessment(startupId)
-        setAssessment(existing)
-        setLoaderDone(true)
-        setPhase('done')
-        return
-      } catch (e) {
-        if (!(e instanceof ApiError && e.status === 404)) {
-          setErrorMessage('Unable to load the opportunity assessment. Please try again.')
-          setPhase('error')
-          return
-        }
-        // 404 → no existing assessment, continue to generation
-      }
-
-      // Slow path: stream a new generation via SSE.
-      try {
-        await streamOpportunityGeneration(startupId, sessionId, {
-          onStage:    upsertStage,
-          onProgress: (pct) => setProgress(pct),
-          onComplete: async (_artifactId, _versionId) => {
-            try {
-              const result = await fetchOpportunityAssessment(startupId)
-              setAssessment(result)
-              setProgress(100)
-              setPhase('done')
-            } catch {
-              setErrorMessage(
-                'Assessment was generated but could not be loaded. Please refresh the page.',
-              )
-              setPhase('error')
-            }
-          },
-          onError: (_code, msg) => {
-            setErrorMessage(
-              msg || 'Opportunity assessment generation failed. Please try again.',
-            )
-            setPhase('error')
-          },
-        })
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : 'An unexpected error occurred.'
-        setErrorMessage(msg)
-        setPhase('error')
-      }
-    }
-
-    void init()
-  }, [startupId, sessionId, upsertStage])
-
-  const handleGenerate = () => router.push('/generating')
-  const handleRefine   = () => router.push('/founder-session')
-
-  const content = assessment?.content ?? null
-  const verdict = content ? verdictLabel(content.recommendation.action) : ''
-  const top      = content ? topRisk(content.keyRisks) : undefined
+  const { idea, startupId } = useFounderSessionStore()
+  const { blueprint, loading, error } = useBlueprint(startupId)
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/20 selection:text-primary pb-[76px]">
+    <div className="min-h-screen bg-background text-foreground font-sans pb-16">
 
-      {/* ── Loader (unmounts once loaderDone = true) ── */}
-      {!loaderDone && (
-        <LoaderScreen
-          stages={stages}
-          progress={progress}
-          done={phase !== 'generating'}
-          onExited={() => setLoaderDone(true)}
-          errorMessage={phase === 'error' ? errorMessage : null}
-        />
-      )}
+      {/* Header */}
+      <header className="border-b border-border bg-background sticky top-0 z-40">
+        <div className="max-w-[1100px] mx-auto px-6 h-11 flex items-center gap-3">
+          <Image
+            src="/logo.svg"
+            alt="Xenysis"
+            width={26}
+            height={26}
+            className="rounded-lg"
+            priority
+          />
+          <span className="text-[17px] font-semibold tracking-[-0.03em] text-foreground">
+            Xenysis
+          </span>
+          <div className="w-px h-4 bg-foreground/[0.07] shrink-0" />
+          <span className="text-[11px] text-foreground/30 font-medium">Startup Blueprint</span>
+          {idea && (
+            <>
+              <div className="w-px h-4 bg-foreground/[0.07] shrink-0 hidden md:block" />
+              <span className="text-[11px] text-foreground/20 italic truncate max-w-[260px] hidden md:block">
+                &ldquo;{idea}&rdquo;
+              </span>
+            </>
+          )}
+          <div className="ml-auto">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-[5px] bg-primary/10 border border-primary/20 rounded-full text-[10px] font-semibold text-primary">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              Blueprint Ready
+            </span>
+          </div>
+        </div>
+      </header>
 
-      <AnimatePresence>
+      {/* Content */}
+      <motion.main
+        className="max-w-[1100px] mx-auto px-6 py-8"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+      >
 
-        {/* ── Success: full report ── */}
-        {loaderDone && phase === 'done' && content && (
-          <motion.div
-            key="report"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.55, ease: 'easeOut' }}
-          >
-            {/* ── Header ── */}
-            <header className="border-b border-border bg-background sticky top-0 z-40">
-              <div className="max-w-[1400px] mx-auto px-6 pt-3 pb-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <motion.div className="flex gap-2">
-                    <Image
-                      className="rounded-lg"
-                      src="/logo.svg"
-                      alt="Xenysis"
-                      width={28}
-                      height={28}
-                      priority
-                    />
-                    <span className="text-[18px] font-semibold tracking-[-0.03em] text-foreground">
-                      Xenysis
-                    </span>
-                  </motion.div>
-                  <div className="w-px h-4 bg-foreground/[0.07] shrink-0" />
-                  <span className="text-[11px] text-foreground/30 font-medium hidden sm:block shrink-0">
-                    Founder Decision Report
-                  </span>
-                  {idea && (
-                    <span className="text-[11px] text-foreground/20 italic hidden md:block truncate max-w-[300px]">
-                      &ldquo;{idea}&rdquo;
-                    </span>
-                  )}
-                  <div className="flex items-center gap-2 ml-auto flex-wrap justify-end">
-                    <div className="flex items-center gap-1.5 px-2 py-[5px] bg-card border border-border rounded-md">
-                      <span className="text-[9px] text-foreground/30 uppercase tracking-widest font-semibold hidden sm:block">
-                        Opportunity
-                      </span>
-                      <span className="text-[12px] font-bold text-primary tabular-nums leading-none">
-                        {content.opportunityScore}/100
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1.5 px-2 py-[5px] bg-card border border-border rounded-md">
-                      <span className="text-[9px] text-foreground/30 uppercase tracking-widest font-semibold hidden sm:block">
-                        Confidence
-                      </span>
-                      <span className="text-[12px] font-bold text-primary tabular-nums leading-none">
-                        {content.confidenceScore}%
-                      </span>
-                    </div>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-[5px] bg-primary/10 border border-primary/20 rounded-full text-[10px] font-semibold text-primary">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-                      {verdict}
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[10px] text-foreground/18 mt-1.5 leading-none">
-                  Generated from market signals, competitor intelligence, startup benchmarks, and
-                  Founder Session responses
-                </p>
-              </div>
-            </header>
+        {/* Hero card */}
+        <div
+          className="relative rounded-2xl border border-primary/20 bg-background overflow-hidden mb-6"
+          style={{
+            boxShadow:
+              '0 0 60px 0 rgba(79,250,176,0.05), inset 0 0 0 1px rgba(79,250,176,0.10)',
+          }}
+        >
+          <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-l-2xl" />
+          <div className="pl-7 pr-6 pt-6 pb-6">
+            <p className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold mb-2">
+              Startup Blueprint
+            </p>
+            <h1 className="text-[30px] font-bold text-foreground tracking-tight leading-tight mb-2">
+              Your foundation is ready.
+            </h1>
+            <p className="text-[13px] text-foreground/45 leading-relaxed max-w-[620px]">
+              Based on your Founder Session, Xenysis has structured your startup idea into a
+              complete blueprint — covering problem, customer, solution, business model, and MVP
+              scope.
+            </p>
+          </div>
+        </div>
 
-            {/* ── Page content ── */}
-            <main className="max-w-[1400px] mx-auto px-6 py-6">
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35 }}
-                className="flex flex-col gap-5"
-              >
-
-                {/* ── Opportunity Assessment hero ── */}
-                <section>
-                  <div
-                    className="relative rounded-2xl border border-primary/20 bg-background overflow-hidden"
-                    style={{
-                      boxShadow:
-                        '0 0 60px 0 rgba(79,250,176,0.06), inset 0 0 0 1px rgba(79,250,176,0.12)',
-                    }}
-                  >
-                    <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-primary rounded-l-2xl" />
-
-                    <div className="pl-7 pr-6 pt-6 pb-6">
-                      <div className="flex items-start justify-between gap-4 mb-3 flex-wrap">
-                        <div>
-                          <p className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold mb-1">
-                            OPPORTUNITY ASSESSMENT
-                          </p>
-                          <h1 className="text-[38px] font-bold text-foreground tracking-tight leading-none">
-                            Verdict: {verdict}
-                          </h1>
-                        </div>
-                        <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
-                          <span className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold leading-none mb-1">
-                            Confidence
-                          </span>
-                          <span className="text-[42px] font-bold text-primary tabular-nums leading-none tracking-tight">
-                            {content.confidenceScore}
-                            <span className="text-[18px] font-medium text-primary/50">%</span>
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Executive summary */}
-                      <p className="text-[13px] text-foreground/50 leading-relaxed mb-5 max-w-[800px]">
-                        {content.executiveSummary}
-                      </p>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-0 lg:divide-x lg:divide-border">
-                        {/* Col 1: Market signals from narrative */}
-                        <div className="lg:pr-5">
-                          <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
-                            Market Signals
-                          </p>
-                          <ul className="flex flex-col gap-1.5">
-                            {toSentences(content.marketPotential.narrative, 3).map((s, i) => (
-                              <li key={i} className="flex items-start gap-2">
-                                <CheckCircle2 className="w-3 h-3 text-primary shrink-0 mt-[2px]" />
-                                <span className="text-[12px] text-foreground/55 leading-snug">
-                                  {s}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {/* Col 2: Competitive differentiators */}
-                        <div className="lg:px-5">
-                          <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
-                            Why It Can Win
-                          </p>
-                          <ul className="flex flex-col gap-1.5">
-                            {content.competitiveAdvantage.differentiators.map((d) => (
-                              <li key={d} className="flex items-start gap-2">
-                                <CheckCircle2 className="w-3 h-3 text-primary shrink-0 mt-[2px]" />
-                                <span className="text-[12px] text-foreground/55 leading-snug">
-                                  {d}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        {/* Col 3: Top risk */}
-                        <div className="lg:px-5">
-                          <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
-                            Biggest Risk
-                          </p>
-                          {top && (
-                            <div className="flex items-start gap-2">
-                              <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-[1px]" />
-                              <span className="text-[12px] text-foreground/55 leading-snug">
-                                {top.description}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Col 4: Expected outcome */}
-                        <div className="lg:pl-5">
-                          <p className="text-[9px] text-foreground/28 uppercase tracking-widest font-semibold mb-2.5">
-                            Expected Outcome
-                          </p>
-                          <div className="bg-primary/[0.06] border border-primary/12 rounded-lg px-3 py-2.5">
-                            <p className="text-[12px] text-foreground/55 leading-snug">
-                              {content.recommendation.rationale}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* v2.0: Score breakdown disclosure */}
-                      {content.scoreBreakdown && (
-                        <div className="mt-5 pt-4 border-t border-primary/10">
-                          <button
-                            onClick={() => setScoreBreakdownOpen((v) => !v)}
-                            className="flex items-center gap-1.5 text-[11px] text-primary/60 hover:text-primary transition-colors"
-                          >
-                            <ChevronDown
-                              className={cn(
-                                'w-3.5 h-3.5 transition-transform duration-200',
-                                scoreBreakdownOpen && 'rotate-180',
-                              )}
-                            />
-                            See how the Opportunity Score was calculated
-                          </button>
-
-                          {scoreBreakdownOpen && (
-                            <ScoreBreakdownPanel
-                              breakdown={content.scoreBreakdown}
-                              opportunityScore={content.opportunityScore}
-                            />
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </section>
-
-                {/* ── Assessment Breakdown ── */}
-                <section>
-                  <div className="flex items-baseline gap-3 mb-3">
-                    <h2 className="text-[13px] font-semibold text-foreground/75 tracking-tight">
-                      Assessment Breakdown
-                    </h2>
-                    <span className="text-[11px] text-foreground/22">
-                      Market · Fit · Next Steps · Competitive Edge
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                    {/* Market Potential */}
-                    <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Market Potential</SectionLabel>
-                      <ul className="flex flex-col gap-3.5">
-                        <LabelValueItem
-                          label="Market Size"
-                          value={ratingLabel(content.marketPotential.size)}
-                        />
-                        <LabelValueItem
-                          label="Growth Rate"
-                          value={ratingLabel(content.marketPotential.growth)}
-                        />
-                        <LabelValueItem
-                          label="Potential Score"
-                          value={`${content.marketPotential.score}/100`}
-                        />
-                      </ul>
-                    </SummaryCard>
-
-                    {/* Founder Fit */}
-                    <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Founder Fit</SectionLabel>
-                      <ul className="flex flex-col gap-3.5">
-                        <LabelValueItem
-                          label="Domain Expertise"
-                          value={ratingLabel(content.founderFit.domainExpertise)}
-                        />
-                        <LabelValueItem
-                          label="Customer Access"
-                          value={ratingLabel(content.founderFit.customerAccess)}
-                        />
-                        <LabelValueItem
-                          label="Execution Capability"
-                          value={ratingLabel(content.founderFit.executionCapability)}
-                        />
-                      </ul>
-                    </SummaryCard>
-
-                    {/* Next Steps */}
-                    <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Next Steps</SectionLabel>
-                      <ul className="flex flex-col gap-2">
-                        {content.recommendation.nextSteps.map((step, idx) => (
-                          <li key={step} className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded-full bg-primary/10 border border-primary/25 flex items-center justify-center shrink-0">
-                              <span className="text-[9px] font-bold text-primary tabular-nums">
-                                {idx + 1}
-                              </span>
-                            </span>
-                            <span className="text-[13px] text-foreground/65 font-medium">
-                              {step}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </SummaryCard>
-
-                    {/* Competitive Edge */}
-                    <SummaryCard className="p-4 col-span-1">
-                      <SectionLabel>Competitive Edge</SectionLabel>
-                      <ul className="flex flex-col gap-3.5">
-                        <LabelValueItem
-                          label="Moat"
-                          value={content.competitiveAdvantage.moat ?? '—'}
-                        />
-                        <LabelValueItem
-                          label="Defensibility"
-                          value={ratingLabel(content.competitiveAdvantage.defensibility)}
-                        />
-                        <LabelValueItem
-                          label="Top Advantage"
-                          value={content.competitiveAdvantage.differentiators[0] ?? '—'}
-                        />
-                      </ul>
-                    </SummaryCard>
-                  </div>
-                </section>
-
-                {/* ── Decision Intelligence ── */}
-                <section>
-                  <div className="flex items-baseline gap-3 mb-3">
-                    <h2 className="text-[13px] font-semibold text-foreground/75 tracking-tight">
-                      Decision Intelligence
-                    </h2>
-                    <span className="text-[11px] text-foreground/22">
-                      Confidence · Validation · Risks
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {content.confidenceBreakdown ? (
-                      <ConfidenceBreakdownPanel
-                        breakdown={content.confidenceBreakdown}
-                        confidenceScore={content.confidenceScore}
-                      />
-                    ) : (
-                      <SummaryCard className="p-5">
-                        <SectionLabel>Research Confidence</SectionLabel>
-                        <div className="flex flex-col gap-0">
-                          {[
-                            { label: 'Market Potential',     pct: content.marketPotential.score },
-                            { label: 'Founder Fit',          pct: content.founderFit.score },
-                          ].map((row) => (
-                            <div
-                              key={row.label}
-                              className="flex items-center gap-2 py-[7px] border-b border-border last:border-b-0"
-                            >
-                              <span className="text-[12px] text-foreground/45 shrink-0 w-[148px]">
-                                {row.label}
-                              </span>
-                              <span className="flex-1 border-b border-dotted border-border" />
-                              <span className="text-[13px] font-semibold text-primary tabular-nums shrink-0">
-                                {row.pct}%
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="mt-4 pt-3 border-t border-border flex items-center justify-between">
-                          <span className="text-[10px] text-foreground/30 uppercase tracking-widest font-semibold">
-                            Overall Confidence
-                          </span>
-                          <span className="text-[26px] font-bold text-primary tabular-nums leading-none">
-                            {content.confidenceScore}
-                            <span className="text-[13px] text-primary/50 font-medium">%</span>
-                          </span>
-                        </div>
-                      </SummaryCard>
-                    )}
-
-                    <SummaryCard className="p-5">
-                      <div className="mb-4 pb-4 border-b border-border">
-                        <SectionLabel>What Must Be True</SectionLabel>
-                        <ul className="flex flex-col gap-1.5">
-                          {content.validationPlan.map((step) => (
-                            <li key={step.action} className="flex items-center gap-2">
-                              <CheckCircle2 className="w-3 h-3 text-primary/70 shrink-0" />
-                              <span className="text-[12px] text-foreground/55 leading-none">
-                                {step.action}
-                              </span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div>
-                        <SectionLabel>Biggest Risks</SectionLabel>
-                        <ul className="flex flex-col gap-2">
-                          {content.keyRisks.map((risk) => {
-                            const isHigh =
-                              risk.severity === 'critical' || risk.severity === 'high'
-                            return (
-                              <li key={risk.title} className="flex items-center gap-2">
-                                <AlertTriangle
-                                  className={cn(
-                                    'w-3 h-3 shrink-0',
-                                    isHigh ? 'text-amber-400' : 'text-amber-600/55',
-                                  )}
-                                />
-                                <span className="text-[12px] text-foreground/55 leading-none flex-1">
-                                  {risk.title}
-                                </span>
-                                <span
-                                  className={cn(
-                                    'inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-semibold tracking-[0.06em] uppercase shrink-0',
-                                    isHigh
-                                      ? 'bg-amber-500/12 text-amber-400 border border-amber-500/20'
-                                      : 'bg-amber-950/40 text-amber-700/60 border border-amber-900/40',
-                                  )}
-                                >
-                                  {isHigh ? 'High' : 'Medium'}
-                                </span>
-                              </li>
-                            )
-                          })}
-                        </ul>
-                      </div>
-                    </SummaryCard>
-                  </div>
-                </section>
-
-                {/* ── Methodology accordion ── */}
-                <div>
-                  <button
-                    onClick={() => setMethodologyOpen((v) => !v)}
-                    className="w-full flex items-center justify-between px-5 py-3 bg-background border border-border rounded-xl hover:bg-card transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-[9px] font-semibold tracking-[0.2em] uppercase text-primary">
-                        Methodology
-                      </span>
-                      <span className="text-[11px] text-foreground/25">
-                        How Xenysis Generated This Recommendation
-                      </span>
-                    </div>
-                    <ChevronDown
-                      className={cn(
-                        'w-4 h-4 text-foreground/20 transition-transform duration-200 shrink-0',
-                        methodologyOpen && 'rotate-180',
-                      )}
-                    />
-                  </button>
-
-                  {methodologyOpen && (
-                    <SummaryCard className="mt-1 px-5 py-4 rounded-t-none border-t-0">
-                      <ul className="flex flex-col sm:flex-row gap-2 sm:gap-8 flex-wrap">
-                        {TRUST_SIGNALS.map((signal) => (
-                          <li key={signal.text} className="flex items-center gap-2">
-                            <span className="text-foreground/25">{signal.icon}</span>
-                            <span className="text-[12px] text-foreground/45">{signal.text}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </SummaryCard>
-                  )}
-                </div>
-
-                {/* ── v2.0: Validation Gaps ── */}
-                {content.validationGapSummary && (
-                  <ValidationGapList summary={content.validationGapSummary} />
-                )}
-
-                {/* ── Generate Startup Foundation CTA ── */}
-                <section>
-                  <div
-                    className="rounded-2xl border border-primary/20 bg-background overflow-hidden"
-                    style={{
-                      boxShadow:
-                        '0 0 40px 0 rgba(79,250,176,0.05), inset 0 0 0 1px rgba(79,250,176,0.10)',
-                    }}
-                  >
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-border">
-                      <div className="p-7 sm:p-9">
-                        <SectionLabel>Next Step</SectionLabel>
-                        <h2 className="text-[28px] font-bold text-foreground tracking-tight leading-tight mb-2">
-                          Generate Startup Foundation
-                        </h2>
-                        <p className="text-[13px] text-foreground/38 leading-relaxed mb-8 max-w-[440px]">
-                          Transform your validated idea into a complete startup foundation. Xenysis
-                          will generate the product structure, business model, application
-                          architecture, and operational blueprint needed to begin building.
-                        </p>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-6">
-                          {FOUNDATION_CATEGORIES.map((category) => (
-                            <div key={category.label}>
-                              <p className="text-[9px] font-bold tracking-[0.22em] uppercase text-primary/70 mb-2.5">
-                                {category.label}
-                              </p>
-                              <ul className="flex flex-col gap-1.5">
-                                {category.items.map((item) => (
-                                  <li key={item} className="flex items-center gap-2">
-                                    <CheckCircle2 className="w-3 h-3 text-primary shrink-0" />
-                                    <span className="text-[13px] text-foreground/75 font-medium leading-none">
-                                      {item}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className="p-7 sm:p-9 flex flex-col justify-center gap-4">
-                        <button
-                          onClick={handleGenerate}
-                          className="w-full inline-flex items-center justify-center gap-2.5 px-5 py-4 bg-primary hover:bg-primary-hover active:bg-primary/80 transition-colors rounded-xl text-[15px] font-bold text-background"
-                        >
-                          Generate Startup Foundation
-                          <ArrowRight className="w-4 h-4" />
-                        </button>
-
-                        <p className="text-[11px] text-foreground/28 leading-relaxed text-center px-2">
-                          This will create your startup workspace and generate the foundational
-                          components of your product, system, and business.
-                        </p>
-
-                        <button
-                          onClick={handleRefine}
-                          className="w-full inline-flex items-center justify-center gap-2 px-5 py-3 bg-transparent hover:bg-foreground/[0.04] transition-colors border border-foreground/12 rounded-xl text-[13px] font-semibold text-foreground/55"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          Refine Startup
-                        </button>
-
-                        <div className="mt-1 pt-4 border-t border-border">
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-foreground/20">
-                              Next
-                            </span>
-                            <span className="w-px h-3 bg-foreground/[0.07]" />
-                            <span className="text-[13px] font-semibold text-foreground/55">
-                              Launch Workspace
-                            </span>
-                            <ArrowRight className="w-3.5 h-3.5 text-primary/60 ml-auto shrink-0" />
-                          </div>
-                          <p className="text-[11px] text-foreground/22 leading-relaxed mt-1.5">
-                            View generated modules, architecture, workflows, and startup assets.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* ── Footer ── */}
-                <footer className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-border">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 bg-primary rotate-45 rounded-[2px]" />
-                    <span className="text-[11px] font-bold text-foreground/28 tracking-[0.12em] uppercase">
-                      Xenysis
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-foreground/16 leading-relaxed max-w-[520px] sm:text-right">
-                    This report is based on available market signals and founder inputs. Xenysis
-                    provides decision support, not guarantees. Scores and recommendations do not
-                    constitute financial or investment advice.
-                  </p>
-                </footer>
-              </motion.div>
-            </main>
-          </motion.div>
+        {/* Blueprint content */}
+        {loading && (
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="w-5 h-5 text-primary animate-spin" />
+          </div>
         )}
 
-        {/* ── Error state (rendered after loader exits) ── */}
-        {loaderDone && phase === 'error' && (
-          <motion.div
-            key="error"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="min-h-screen flex items-center justify-center px-6"
-          >
-            <div className="flex flex-col items-center gap-4 text-center max-w-[400px]">
-              <AlertTriangle className="w-8 h-8 text-amber-400" />
-              <h2 className="text-[20px] font-semibold text-foreground">Assessment Failed</h2>
-              <p className="text-[13px] text-foreground/45 leading-relaxed">
-                {errorMessage ??
-                  'An unexpected error occurred while generating your opportunity assessment.'}
-              </p>
-              <button
-                onClick={handleRefine}
-                className="mt-2 inline-flex items-center gap-2 px-5 py-3 bg-card border border-border rounded-xl text-[13px] font-semibold text-foreground/70 hover:bg-foreground/[0.04] transition-colors"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                Return to Founder Session
-              </button>
+        {error && !loading && (
+          <div className="flex items-center justify-center py-16 text-center">
+            <div>
+              <p className="text-[13px] text-foreground/40 mb-1">Could not load blueprint</p>
+              <p className="text-[12px] text-foreground/25">{error.message}</p>
             </div>
-          </motion.div>
+          </div>
         )}
 
-      </AnimatePresence>
+        {!loading && !error && blueprint && (
+          <BlueprintGrid content={blueprint.content} />
+        )}
+      </motion.main>
+
+      {/* Footer */}
+      <div className="max-w-[1100px] mx-auto px-6 mt-8 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-primary rotate-45 rounded-[2px]" />
+          <span className="text-[11px] font-bold text-foreground/28 tracking-[0.12em] uppercase">
+            Xenysis
+          </span>
+        </div>
+        <button
+          onClick={() => router.push('/founder-session?fresh=true')}
+          className="inline-flex items-center gap-2 px-5 py-2.5 bg-transparent hover:bg-foreground/[0.04] transition-colors border border-foreground/12 rounded-xl text-[13px] font-semibold text-foreground/55"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          Start New Session
+        </button>
+      </div>
     </div>
   )
 }

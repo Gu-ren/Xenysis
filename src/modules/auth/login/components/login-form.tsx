@@ -1,58 +1,50 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react';
-import Link from 'next/link';
-import { AuthInput } from '../../components/auth-input';
-import { GoogleButton } from '../../components/google-button';
-import { CommandCenterLoading } from '@/components/transitions/command-center-loading';
-import { supabase } from '@/services/auth/client';
-import { signInWithGoogle } from '@/services/auth';
-import { fetchStartups } from '@/modules/projects/services/startups';
-
-const SUCCESS_STEPS = [
-  { label: 'Credentials verified', durationMs: 400 },
-  { label: 'Session initialized', durationMs: 350 },
-  { label: 'Preparing your workspace', durationMs: 300 },
-];
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react'
+import Link from 'next/link'
+import { AuthInput } from '../../components/auth-input'
+import { GoogleButton } from '../../components/google-button'
+import { supabase } from '@/services/auth/client'
+import { signInWithGoogle } from '@/services/auth'
 
 export function LoginForm() {
-  const router = useRouter();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [succeeding, setSucceeding] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
-  const [destination, setDestination] = useState('/dashboard');
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [succeeding, setSucceeding] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
 
   const handleGoogleSignIn = async () => {
-    setGoogleLoading(true);
-    await signInWithGoogle();
-    setGoogleLoading(false);
-  };
+    setGoogleLoading(true)
+    await signInWithGoogle()
+    setGoogleLoading(false)
+  }
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
+    e.preventDefault()
+    setError(null)
+    setLoading(true)
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
 
     if (signInError) {
-      const isCredentialError = signInError.message.toLowerCase().includes('invalid login credentials') || signInError.message.toLowerCase().includes('invalid credentials');
-      setError(isCredentialError ? 'invalid_credentials' : signInError.message);
-      setLoading(false);
-      return;
+      const isCredentialError =
+        signInError.message.toLowerCase().includes('invalid login credentials') ||
+        signInError.message.toLowerCase().includes('invalid credentials')
+      setError(isCredentialError ? 'invalid_credentials' : signInError.message)
+      setLoading(false)
+      return
     }
 
-    const startups = await fetchStartups().catch(() => []);
-    setDestination(startups.length === 0 ? '/founder-session' : '/dashboard');
-    setSucceeding(true);
-  };
+    setSucceeding(true)
+    router.push('/founder-session')
+  }
 
   return (
     <AnimatePresence mode="wait">
@@ -62,13 +54,10 @@ export function LoginForm() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.2 }}
-          className="py-4"
+          className="py-8 flex flex-col items-center gap-4"
         >
-          <CommandCenterLoading
-            title="Signing you in"
-            steps={SUCCESS_STEPS}
-            onComplete={() => router.push(destination)}
-          />
+          <div className="w-5 h-5 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+          <p className="text-[12px] text-foreground/30 font-mono">Signing you in…</p>
         </motion.div>
       ) : (
         <motion.form
@@ -103,8 +92,8 @@ export function LoginForm() {
                 type="button"
                 className="text-[10px] font-medium font-mono transition-colors"
                 style={{ color: '#888888' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#4FFAB0'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#888888'; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#4FFAB0' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#888888' }}
               >
                 Forgot password?
               </button>
@@ -124,16 +113,16 @@ export function LoginForm() {
                   border: '1px solid rgba(255,255,255,0.08)',
                   caretColor: '#4FFAB0',
                 }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = '#4FFAB0'; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = '#4FFAB0' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors duration-150"
                 style={{ color: '#888888' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#4FFAB0'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#888888'; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#4FFAB0' }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#888888' }}
                 tabIndex={-1}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
               >
@@ -168,11 +157,13 @@ export function LoginForm() {
             whileTap={!loading ? { scale: 0.995 } : {}}
             className="w-full rounded-[6px] py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2 group transition-colors duration-150 mt-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ background: '#4FFAB0', color: '#080808' }}
-            onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#44E5A9'; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#4FFAB0'; }}
+            onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLButtonElement).style.background = '#44E5A9' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#4FFAB0' }}
           >
             <span>{loading ? 'Signing in…' : 'Sign In'}</span>
-            {!loading && <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />}
+            {!loading && (
+              <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform duration-150" />
+            )}
           </motion.button>
 
           <div className="flex items-center gap-3 my-0.5">
@@ -191,8 +182,8 @@ export function LoginForm() {
               href="/signup"
               className="font-medium transition-colors"
               style={{ color: '#4FFAB0' }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#44E5A9'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#4FFAB0'; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#44E5A9' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLAnchorElement).style.color = '#4FFAB0' }}
             >
               Create your account
             </Link>
@@ -200,5 +191,5 @@ export function LoginForm() {
         </motion.form>
       )}
     </AnimatePresence>
-  );
+  )
 }

@@ -1,10 +1,10 @@
 import { AuthGuard } from '@/components/auth/auth-guard'
-import { SummaryStep } from '@/modules/founder-session/summary/SummaryStep'
+import { BlueprintPage } from '@/modules/blueprint/BlueprintPage'
 
 export default function Page() {
   return (
     <AuthGuard>
-      <SummaryStep />
+      <BlueprintPage />
     </AuthGuard>
   )
 }
