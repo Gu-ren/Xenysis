@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AlertCircle, FileX, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/services/auth/use-auth'
+import { useStartupStore } from '@/store/startup'
 import { BlueprintHeader } from './components/blueprint-header'
 import { NavSidebar } from './components/nav-sidebar'
 import { MetricsSidebar } from './components/metrics-sidebar'
@@ -99,6 +100,7 @@ export function BlueprintPage() {
   const { user } = useAuth()
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false)
   const { blueprint, loading, error, refetch } = useBlueprint()
+  const startupId = useStartupStore((s) => s.startupId)
 
   const handleOpenWaitlist = () => {
     trackEvent('workspace_cta_clicked')
@@ -157,6 +159,8 @@ export function BlueprintPage() {
         isOpen={isWaitlistOpen}
         onClose={() => setIsWaitlistOpen(false)}
         userEmail={user?.email}
+        startupId={startupId}
+        blueprintId={blueprint?.blueprintId ?? null}
       />
     </div>
   )
