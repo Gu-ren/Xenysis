@@ -93,6 +93,22 @@ export async function fetchUnderstanding(
   return data
 }
 
+// Beta early-exit: founder elects to generate an assessment before natural session completion.
+// Validates eligibility server-side, forces isComplete = true with blueprintMode = 'hypothesis'.
+export async function requestAssessment(
+  startupId: string,
+  sessionId: string,
+): Promise<FounderUnderstanding> {
+  if (!hasBackend) {
+    return { ...EMPTY_UNDERSTANDING, isComplete: true, blueprintMode: 'hypothesis' }
+  }
+  const { data } = await apiPost<Record<string, never>, { data: { understanding: FounderUnderstanding } }>(
+    `/api/v1/startups/${startupId}/sessions/${sessionId}/request-assessment`,
+    {},
+  )
+  return data.understanding
+}
+
 // ── SSE chat stream ───────────────────────────────────────────────────────────
 
 export interface ChatStreamEvent {

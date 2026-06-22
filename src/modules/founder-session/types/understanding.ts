@@ -68,6 +68,9 @@ export interface FounderUnderstanding {
   marketplaceDetected: boolean
   pivotDetected: boolean
   pivotCount: number
+  // Beta early-exit: true when problem/customer/solution >= 50%, overall >= 70%, and min
+  // exchanges are met, but isComplete = false. Surfaces the Generate Assessment choice.
+  earlyExitEligible: boolean
 }
 
 const EMPTY_CATEGORY: CategoryState = {
@@ -110,6 +113,7 @@ export const EMPTY_UNDERSTANDING: FounderUnderstanding = {
   marketplaceDetected: false,
   pivotDetected:       false,
   pivotCount:          0,
+  earlyExitEligible:   false,
 }
 
 export const CATEGORY_DISPLAY: Record<UnderstandingCategory, { label: string; required: boolean }> = {

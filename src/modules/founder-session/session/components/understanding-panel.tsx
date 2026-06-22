@@ -9,6 +9,7 @@ import { useUnderstanding } from '../hooks/use-understanding'
 import { useGenerateReport } from '../hooks/use-generate-report'
 import { FOCUS_LABEL } from '../../types/understanding'
 import { useFounderSessionStore } from '@/store/founder-session'
+import { requestAssessment } from '../../services/sessions'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -301,14 +302,35 @@ export function UnderstandingPanel() {
   const router      = useRouter()
   const understanding = useUnderstanding()
   const isStreaming   = useFounderSessionStore((s) => s.isStreaming)
-  const { overallConfidence, isComplete, weakestCategory } = understanding
+  const setIsSessionComplete = useFounderSessionStore((s) => s.setIsSessionComplete)
+  const startupId   = useFounderSessionStore((s) => s.startupId)
+  const sessionId   = useFounderSessionStore((s) => s.sessionId)
+  const { overallConfidence, isComplete, weakestCategory, earlyExitEligible } = understanding
 
   const { stage, stageLabel, error: generateError, generate } = useGenerateReport()
   const isGenerating = stage === 'generating-oa' || stage === 'generating-blueprint'
 
+  // Local dismiss state — once dismissed, the CTA is hidden for the rest of this render session.
+  const [earlyExitDismissed, setEarlyExitDismissed] = React.useState(false)
+  const [earlyExitError, setEarlyExitError] = React.useState<string | null>(null)
+  const showEarlyExitCta = earlyExitEligible && !isComplete && !earlyExitDismissed
+
   const handleGenerateReport = async () => {
     const result = await generate()
     if (result === 'complete') router.push('/session-summary')
+  }
+
+  const handleEarlyExitGenerate = async () => {
+    if (!startupId || !sessionId) return
+    setEarlyExitError(null)
+    try {
+      await requestAssessment(startupId, sessionId)
+      setIsSessionComplete(true)
+      const result = await generate()
+      if (result === 'complete') router.push('/session-summary')
+    } catch (err) {
+      setEarlyExitError(err instanceof Error ? err.message : 'Failed to generate assessment')
+    }
   }
 
   const isPreSession = weakestCategory === null && overallConfidence === 0
@@ -536,7 +558,7 @@ export function UnderstandingPanel() {
         </div>
       </div>
 
-      {/* ── CTA ── */}
+      {/* ── CTA: natural completion ── */}
       <AnimatePresence>
         {isComplete && (
           <motion.div
@@ -578,6 +600,101 @@ export function UnderstandingPanel() {
                 style={{ fontSize: 11, color: '#EF4444', letterSpacing: '0.02em' }}
               >
                 {generateError}
+              </p>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── CTA: beta early-exit ── */}
+      <AnimatePresence>
+        {showEarlyExitCta && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+            className="shrink-0 px-5 py-4 flex flex-col gap-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            {/* Header */}
+            <div>
+              <p style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.80)', letterSpacing: '-0.01em', margin: 0, marginBottom: 4 }}>
+                Generate Initial Assessment
+              </p>
+              <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.38)', lineHeight: 1.55, margin: 0 }}>
+                Xenysis has enough to generate an initial assessment and startup blueprint.
+              </p>
+            </div>
+
+            {/* Confidence badge */}
+            <div className="flex items-center gap-2">
+              <span
+                className="font-mono text-[10px] px-2 py-0.5 rounded-full"
+                style={{
+                  background: 'rgba(79,250,176,0.10)',
+                  color: '#4FFAB0',
+                  border: '1px solid rgba(79,250,176,0.20)',
+                  letterSpacing: '0.03em',
+                }}
+              >
+                {overallConfidence}% understood
+              </span>
+              <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: 'IBM Plex Mono, monospace', letterSpacing: '0.02em' }}>
+                Remaining gaps will be labeled
+              </span>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleEarlyExitGenerate}
+                disabled={isGenerating}
+                className="w-full flex items-center justify-center gap-2 rounded-[8px] h-9 font-semibold tracking-[-0.01em] transition-all duration-200"
+                style={{
+                  fontSize: 13,
+                  background: isGenerating ? 'rgba(79,250,176,0.15)' : '#4FFAB0',
+                  color: isGenerating ? '#4FFAB0' : '#0A0A0A',
+                  cursor: isGenerating ? 'default' : 'pointer',
+                  border: isGenerating ? '1px solid rgba(79,250,176,0.25)' : 'none',
+                }}
+              >
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    {stageLabel}
+                  </>
+                ) : (
+                  <>
+                    Generate Assessment
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => setEarlyExitDismissed(true)}
+                disabled={isGenerating}
+                className="w-full flex items-center justify-center rounded-[8px] h-8 transition-colors duration-150"
+                style={{
+                  fontSize: 12,
+                  color: 'rgba(255,255,255,0.35)',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  cursor: isGenerating ? 'default' : 'pointer',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                Continue Discovery
+              </button>
+            </div>
+
+            {earlyExitError && (
+              <p
+                className="text-center font-mono"
+                style={{ fontSize: 11, color: '#EF4444', letterSpacing: '0.02em' }}
+              >
+                {earlyExitError}
               </p>
             )}
           </motion.div>

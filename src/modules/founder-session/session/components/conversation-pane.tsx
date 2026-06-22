@@ -1,12 +1,29 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowRight, Send } from 'lucide-react'
+import { Send, Loader2 } from 'lucide-react'
 import { useFounderSessionStore } from '@/store/founder-session'
 import { streamChatMessage } from '@/modules/founder-session/services/sessions'
-import Image from 'next/image'
+
+const LINE_HEIGHT = 22
+const MAX_ROWS = 9
+
+function useAutoResize(value: string) {
+  const ref = useRef<HTMLTextAreaElement>(null)
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    el.style.height = 'auto'
+    const maxHeight = LINE_HEIGHT * MAX_ROWS
+    el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`
+    el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
+  }, [value])
+
+  return ref
+}
 
 interface Message {
   role: 'user' | 'ai'
@@ -26,11 +43,13 @@ export function ConversationPane() {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isFocused, setIsFocused] = useState(false)
 
   const scrollEndRef   = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
   const startupIdRef   = useRef(startupId)
   const sessionIdRef   = useRef(sessionId)
+  const textareaRef    = useAutoResize(inputValue)
 
   useEffect(() => { startupIdRef.current = startupId }, [startupId])
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
@@ -99,12 +118,25 @@ export function ConversationPane() {
     if (!text || isStreaming) return
     setInputValue('')
     setIsTyping(false)
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.overflowY = 'hidden'
+    }
     doStream(text)
-  }, [inputValue, isStreaming, doStream, setIsTyping])
+  }, [inputValue, isStreaming, doStream, setIsTyping, textareaRef])
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') handleSend()
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      const isMod = e.metaKey || e.ctrlKey
+      if (isMod && e.key === 'Enter') {
+        e.preventDefault()
+        handleSend()
+        return
+      }
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        handleSend()
+      }
     },
     [handleSend],
   )
@@ -249,28 +281,64 @@ export function ConversationPane() {
           )}
         </AnimatePresence>
 
-        <div className="flex items-center gap-3 bg-card border border-border rounded-[10px] px-[15px] h-11 transition-[border-color,box-shadow] duration-200 focus-within:border-primary/30 focus-within:[box-shadow:0_0_0_3px_rgba(79,250,176,0.10)]">
-          <input
+        <div
+          className="flex flex-col bg-card rounded-2xl transition-[border-color,box-shadow] duration-200"
+          style={{
+            border: isFocused
+              ? '1px solid rgba(79,250,176,0.35)'
+              : '1px solid var(--border)',
+            boxShadow: isFocused
+              ? '0 0 0 3px rgba(79,250,176,0.10)'
+              : 'none',
+          }}
+        >
+          <textarea
+            ref={textareaRef}
             value={inputValue}
-            onChange={(e) => { setInputValue(e.target.value); setIsTyping(e.target.value.length > 0) }}
-            onKeyDown={handleKeyDown}
-            placeholder="Answer or ask Xenysis anything…"
-            disabled={isStreaming || isSessionComplete}
-            className="flex-1 bg-transparent border-none outline-none text-foreground text-[13px] tracking-[-0.01em] placeholder:text-muted/50 disabled:opacity-50"
-            style={{ caretColor: 'var(--primary)' }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={isStreaming || isSessionComplete || !inputValue.trim()}
-            aria-label="Send message"
-            className="w-[27px] h-[27px] flex items-center justify-center rounded-md bg-transparent border-none cursor-pointer shrink-0 p-0 transition-colors duration-150 disabled:cursor-not-allowed"
-            style={{
-              color:
-                inputValue.trim() && !isStreaming && !isSessionComplete ? 'var(--primary)' : 'rgba(85,85,85,1)',
+            onChange={(e) => {
+              setInputValue(e.target.value)
+              setIsTyping(e.target.value.length > 0)
             }}
-          >
-            <Send style={{ width: 14, height: 14 }} strokeWidth={1.8} />
-          </button>
+            onKeyDown={handleKeyDown}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder="What are you building? Describe your idea, target customers, and the problem you're solving…"
+            disabled={isStreaming || isSessionComplete}
+            rows={1}
+            aria-label="Message composer"
+            aria-multiline="true"
+            className="w-full bg-transparent border-none outline-none resize-none text-foreground text-[13px] leading-[22px] tracking-[-0.01em] placeholder:text-muted/50 disabled:opacity-50 disabled:cursor-not-allowed px-4 pt-3 pb-1"
+            style={{
+              caretColor: 'var(--primary)',
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(79,250,176,0.25) transparent',
+            }}
+          />
+          <div className="flex justify-end px-3 pb-3 pt-1">
+            <button
+              onClick={handleSend}
+              disabled={isStreaming || isSessionComplete || !inputValue.trim()}
+              aria-label="Send message"
+              className="w-[28px] h-[28px] flex items-center justify-center rounded-lg transition-all duration-150 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
+              style={{
+                background:
+                  inputValue.trim() && !isStreaming && !isSessionComplete
+                    ? 'rgba(79,250,176,0.12)'
+                    : 'transparent',
+                color:
+                  inputValue.trim() && !isStreaming && !isSessionComplete
+                    ? 'var(--primary)'
+                    : 'rgba(85,85,85,1)',
+                outlineColor: 'var(--primary)',
+              }}
+            >
+              {isStreaming ? (
+                <Loader2 style={{ width: 13, height: 13 }} strokeWidth={2} className="animate-spin" />
+              ) : (
+                <Send style={{ width: 13, height: 13 }} strokeWidth={2} />
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
