@@ -112,11 +112,11 @@ export async function requestAssessment(
 
 export interface ChatStreamEvent {
   type: 'delta' | 'done' | 'error'
-  data: { content?: string; jobId?: string; message?: string }
+  data: { content?: string; jobId?: string; message?: string; choices?: string[] }
 }
 
 export type OnChunk = (content: string) => void
-export type OnComplete = (jobId: string) => void
+export type OnComplete = (jobId: string, choices?: string[]) => void
 export type OnError = (message: string, status?: number) => void
 
 export async function streamChatMessage(
@@ -126,13 +126,19 @@ export async function streamChatMessage(
   callbacks: { onChunk: OnChunk; onComplete: OnComplete; onError: OnError },
 ): Promise<void> {
   if (!process.env.NEXT_PUBLIC_API_URL) {
-    // Mock: simulate streaming a response when no backend is configured
-    const words = ['This', 'is', 'a', 'mock', 'AI', 'response', 'to', 'your', 'message.']
+    const mockQuestion =
+      'Who is your primary customer — and what triggers them to look for a solution like yours?'
+    const mockChoices = [
+      'Small business owners managing invoices manually',
+      'Mid-market finance teams with compliance pressure',
+      'Freelancers who need simple expense tracking',
+    ]
+    const words = mockQuestion.split(' ')
     for (const word of words) {
-      await new Promise((r) => setTimeout(r, 80))
+      await new Promise((r) => setTimeout(r, 60))
       callbacks.onChunk(word + ' ')
     }
-    callbacks.onComplete('mock-job-id')
+    callbacks.onComplete('mock-job-id', mockChoices)
     return
   }
 
@@ -174,7 +180,7 @@ export async function streamChatMessage(
         if (event.type === 'delta' && event.data.content) {
           callbacks.onChunk(event.data.content)
         } else if (event.type === 'done' && event.data.jobId) {
-          callbacks.onComplete(event.data.jobId)
+          callbacks.onComplete(event.data.jobId, event.data.choices)
         } else if (event.type === 'error' && event.data.message) {
           callbacks.onError(event.data.message)
         }

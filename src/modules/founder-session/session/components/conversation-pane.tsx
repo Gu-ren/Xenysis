@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Loader2 } from 'lucide-react'
 import { useFounderSessionStore } from '@/store/founder-session'
 import { streamChatMessage } from '@/modules/founder-session/services/sessions'
+import { AnswerChoices } from '@/modules/founder-session/session/components/answer-choices'
 
 const LINE_HEIGHT = 22
 const MAX_ROWS = 9
@@ -28,6 +29,9 @@ function useAutoResize(value: string) {
 interface Message {
   role: 'user' | 'ai'
   content: string
+  choices?: string[]
+  selectedChoice?: string
+  choicesDismissed?: boolean
 }
 
 export function ConversationPane() {
@@ -44,6 +48,7 @@ export function ConversationPane() {
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [pendingChoice, setPendingChoice] = useState<string | null>(null)
 
   const scrollEndRef   = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
@@ -64,7 +69,15 @@ export function ConversationPane() {
     if (!sid || !sessId) return
 
     if (!isInitial) {
-      setMessages((prev) => [...prev, { role: 'user', content: text }])
+      setMessages((prev) => {
+        const updated = prev.map((msg, idx) =>
+          idx === prev.length - 1 && msg.role === 'ai' && msg.choices?.length
+            ? { ...msg, choicesDismissed: true }
+            : msg,
+        )
+        return [...updated, { role: 'user', content: text }]
+      })
+      setPendingChoice(null)
     }
     setIsStreaming(true)
     setStreamingInStore(true)
@@ -81,10 +94,20 @@ export function ConversationPane() {
           return updated
         })
       },
-      onComplete: () => {
+      onComplete: (_jobId, choices) => {
         setIsStreaming(false)
         setStreamingInStore(false)
         pingExchange()
+        if (choices && choices.length > 0) {
+          setMessages((prev) => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last?.role === 'ai') {
+              updated[updated.length - 1] = { ...last, choices }
+            }
+            return updated
+          })
+        }
       },
       onError: (_message, status) => {
         setIsStreaming(false)
@@ -112,6 +135,21 @@ export function ConversationPane() {
     initializedRef.current = true
     doStream('Let\'s begin the founder discovery session.', true)
   }, [startupId, sessionId, doStream])
+
+  const handleChoiceSelect = useCallback((choice: string, messageIndex: number) => {
+    if (isStreaming || isSessionComplete) return
+    setInputValue(choice)
+    setPendingChoice(choice)
+    setIsTyping(true)
+    setMessages((prev) =>
+      prev.map((msg, idx) =>
+        idx === messageIndex && msg.role === 'ai'
+          ? { ...msg, selectedChoice: choice }
+          : msg,
+      ),
+    )
+    textareaRef.current?.focus()
+  }, [isStreaming, isSessionComplete, setIsTyping, textareaRef])
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim()
@@ -229,6 +267,19 @@ export function ConversationPane() {
                   />
                 )}
               </p>
+              {msg.role === 'ai' &&
+                msg.choices &&
+                msg.choices.length > 0 &&
+                !msg.choicesDismissed &&
+                !isStreaming &&
+                i === messages.length - 1 && (
+                  <AnswerChoices
+                    choices={msg.choices}
+                    selectedChoice={msg.selectedChoice ?? pendingChoice}
+                    disabled={isSessionComplete}
+                    onSelect={(choice) => handleChoiceSelect(choice, i)}
+                  />
+                )}
             </motion.div>
           ),
         )}
@@ -298,11 +349,18 @@ export function ConversationPane() {
             onChange={(e) => {
               setInputValue(e.target.value)
               setIsTyping(e.target.value.length > 0)
+              if (pendingChoice && e.target.value !== pendingChoice) {
+                setPendingChoice(null)
+              }
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="What are you building? Describe your idea, target customers, and the problem you're solving…"
+            placeholder={
+              pendingChoice
+                ? 'Refine your selected answer — add details, context, or corrections…'
+                : 'What are you building? Describe your idea, target customers, and the problem you\'re solving…'
+            }
             disabled={isStreaming || isSessionComplete}
             rows={1}
             aria-label="Message composer"
