@@ -2,35 +2,32 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { supabase } from '@/services/auth/client'
+import { storeOAuthTokens, getUser } from '@/services/auth'
 
 export function OAuthCallbackPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const exchanged = useRef(false)
+  const handled = useRef(false)
 
   useEffect(() => {
-    if (exchanged.current) return
-    exchanged.current = true
+    if (handled.current) return
+    handled.current = true
 
-    const code = searchParams.get('code')
+    const accessToken = searchParams.get('accessToken')
+    const refreshToken = searchParams.get('refreshToken')
+    const error = searchParams.get('error')
 
     async function finish() {
-      if (code) {
-        const { error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          const { data: { session } } = await supabase.auth.getSession()
-          if (!session) {
-            router.replace('/login')
-            return
-          }
-        }
-      } else {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
-          router.replace('/login')
-          return
-        }
+      if (error || !accessToken || !refreshToken) {
+        router.replace('/login')
+        return
+      }
+
+      storeOAuthTokens(accessToken, refreshToken)
+      const user = await getUser()
+      if (!user) {
+        router.replace('/login')
+        return
       }
 
       router.replace('/founder-session')

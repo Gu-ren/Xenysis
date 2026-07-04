@@ -20,6 +20,7 @@ interface FounderSessionState {
   isSessionComplete: boolean
   isTyping: boolean
   isStreaming: boolean
+  continueDiscoveryPingAt: number | null
 }
 
 interface FounderSessionActions {
@@ -36,6 +37,7 @@ interface FounderSessionActions {
   setIsSessionComplete: (v: boolean) => void
   setIsTyping: (v: boolean) => void
   setIsStreaming: (v: boolean) => void
+  requestContinueDiscovery: () => void
   reset: () => void
 }
 
@@ -55,6 +57,7 @@ const initialState: FounderSessionState = {
   isSessionComplete: false,
   isTyping: false,
   isStreaming: false,
+  continueDiscoveryPingAt: null,
 }
 
 export const useFounderSessionStore = create<FounderSessionStore>()(
@@ -75,6 +78,7 @@ export const useFounderSessionStore = create<FounderSessionStore>()(
       setIsSessionComplete: (isSessionComplete) => set({ isSessionComplete }),
       setIsTyping: (isTyping) => set({ isTyping }),
       setIsStreaming: (isStreaming) => set({ isStreaming }),
+      requestContinueDiscovery: () => set({ continueDiscoveryPingAt: Date.now() }),
       reset: () => set(initialState),
     }),
     {

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { CheckCircle, X } from 'lucide-react';
-import { supabase } from '@/services/auth/client';
+import Link from 'next/link';
 
 export function ConfirmPage() {
   const router = useRouter();
@@ -13,23 +13,25 @@ export function ConfirmPage() {
   const [countdown, setCountdown] = useState(3);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error || !session) {
-        setStatus('error');
-      } else {
-        setStatus('verified');
-      }
-    });
-  }, []);
+    const verified = searchParams.get('verified');
+    const error = searchParams.get('error');
 
-  // Once verified, count down 3s then redirect to founder-session
+    if (verified === '1') {
+      setStatus('verified');
+    } else if (error) {
+      setStatus('error');
+    } else {
+      setStatus('verified');
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     if (status !== 'verified') return;
 
     const intent = searchParams.get('intent') ?? '';
     const params = new URLSearchParams({ fresh: 'true' });
     if (intent) params.set('intent', intent);
-    const destination = `/founder-session?${params.toString()}`;
+    const destination = `/login?${params.toString()}`;
 
     const interval = setInterval(() => {
       setCountdown((n) => {
@@ -78,7 +80,7 @@ export function ConfirmPage() {
                 Email verified
               </h1>
               <p className="text-[13px] leading-relaxed" style={{ color: '#A1A1AA' }}>
-                You&apos;re all set. Redirecting you in {countdown}…
+                You&apos;re all set. Sign in to continue — redirecting in {countdown}…
               </p>
             </div>
           </>
@@ -97,7 +99,10 @@ export function ConfirmPage() {
                 Confirmation failed
               </h1>
               <p className="text-[13px] leading-relaxed" style={{ color: '#A1A1AA' }}>
-                This link may have expired. Go back and sign up again.
+                This link may have expired.{' '}
+                <Link href="/signup" className="underline" style={{ color: '#4FFAB0' }}>
+                  Sign up again
+                </Link>
               </p>
             </div>
           </>

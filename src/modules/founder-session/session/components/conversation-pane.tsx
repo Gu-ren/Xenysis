@@ -5,10 +5,33 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Loader2 } from 'lucide-react'
 import { useFounderSessionStore } from '@/store/founder-session'
-import { streamChatMessage } from '@/modules/founder-session/services/sessions'
+import {
+  streamChatMessage,
+  continueDiscovery,
+  generateChoices,
+} from '@/modules/founder-session/services/sessions'
+import { useUnderstanding } from '@/modules/founder-session/session/hooks/use-understanding'
+import { FOCUS_LABEL, type UnderstandingCategory } from '@/modules/founder-session/types/understanding'
+import { AnswerChoices } from '@/modules/founder-session/session/components/answer-choices'
+import type { AnswerChoice } from '@/modules/founder-session/utils/answer-choices'
 
 const LINE_HEIGHT = 22
 const MAX_ROWS = 9
+
+const COMPOSER_PLACEHOLDERS: Record<UnderstandingCategory, string> = {
+  problem:     'Describe the specific pain — who feels it, how often, and what workaround they use today…',
+  customer:    'Name the buyer — role, company size, and what triggers them to search for a solution…',
+  solution:      'Explain what you\'re building and why it beats the current workaround…',
+  market:      'Share market size, growth signals, or timing — include numbers if you have them…',
+  pricing:     'Describe your revenue model, price point, and any willingness-to-pay signals…',
+  competition: 'Name competitors or alternatives and why customers would switch to you…',
+  risks:       'Describe the biggest threat and your key unproven assumption…',
+  founder_fit: 'Share your domain expertise, customer access, and why you can win…',
+  supply_side: 'Explain how you recruit, onboard, and retain supply-side participants…',
+}
+
+const DEFAULT_PLACEHOLDER =
+  'What are you building? Describe your idea, target customers, and the problem you\'re solving…'
 
 function useAutoResize(value: string) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -28,6 +51,9 @@ function useAutoResize(value: string) {
 interface Message {
   role: 'user' | 'ai'
   content: string
+  choices?: AnswerChoice[]
+  selectedChoice?: string
+  choicesDismissed?: boolean
 }
 
 export function ConversationPane() {
@@ -38,18 +64,41 @@ export function ConversationPane() {
   const isSessionComplete = useFounderSessionStore((s) => s.isSessionComplete)
   const setIsTyping = useFounderSessionStore((s) => s.setIsTyping)
   const setStreamingInStore = useFounderSessionStore((s) => s.setIsStreaming)
+  const continueDiscoveryPingAt = useFounderSessionStore((s) => s.continueDiscoveryPingAt)
   const reset = useFounderSessionStore((s) => s.reset)
+
+  const understanding = useUnderstanding()
+  const { earlyExitEligible } = understanding
 
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
+  const [pendingChoice, setPendingChoice] = useState<string | null>(null)
+  const [gateDismissedThisCycle, setGateDismissedThisCycle] = useState(false)
+  const [choicesUnlocked, setChoicesUnlocked] = useState(false)
+  const [isGeneratingChoices, setIsGeneratingChoices] = useState(false)
+  const [lowEffortBanner, setLowEffortBanner] = useState(false)
+
+  const composerPlaceholder = understanding.weakestCategory
+    ? COMPOSER_PLACEHOLDERS[understanding.weakestCategory]
+    : DEFAULT_PLACEHOLDER
 
   const scrollEndRef   = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
   const startupIdRef   = useRef(startupId)
   const sessionIdRef   = useRef(sessionId)
+  const prevEligibleRef = useRef(false)
+  const continueDiscoveryPingRef = useRef<number | null>(null)
   const textareaRef    = useAutoResize(inputValue)
+
+  const showDiscoveryGate =
+    earlyExitEligible &&
+    !gateDismissedThisCycle &&
+    !isSessionComplete &&
+    !isStreaming
+
+  const canShowChoices = !showDiscoveryGate || choicesUnlocked
 
   useEffect(() => { startupIdRef.current = startupId }, [startupId])
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
@@ -58,13 +107,69 @@ export function ConversationPane() {
     scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  useEffect(() => {
+    if (earlyExitEligible && !prevEligibleRef.current) {
+      setGateDismissedThisCycle(false)
+      setChoicesUnlocked(false)
+    }
+    prevEligibleRef.current = earlyExitEligible
+  }, [earlyExitEligible])
+
+  const handleContinueDiscovery = useCallback(async () => {
+    const sid = startupIdRef.current
+    const sessId = sessionIdRef.current
+    if (!sid || !sessId || isGeneratingChoices || isStreaming) return
+
+    const lastAiIndex = messages.findLastIndex((m) => m.role === 'ai')
+    const lastAi = lastAiIndex >= 0 ? messages[lastAiIndex] : null
+    if (!lastAi?.content.trim()) return
+
+    setIsGeneratingChoices(true)
+    try {
+      await continueDiscovery(sid, sessId)
+      setGateDismissedThisCycle(true)
+      setChoicesUnlocked(true)
+      pingExchange()
+
+      const choices = await generateChoices(sid, sessId, lastAi.content)
+      if (choices.length > 0) {
+        setMessages((prev) =>
+          prev.map((msg, idx) =>
+            idx === lastAiIndex && msg.role === 'ai'
+              ? { ...msg, choices }
+              : msg,
+          ),
+        )
+      }
+    } catch {
+      // gate stays active on failure
+    } finally {
+      setIsGeneratingChoices(false)
+    }
+  }, [messages, isGeneratingChoices, isStreaming, pingExchange])
+
+  useEffect(() => {
+    if (!continueDiscoveryPingAt) return
+    if (continueDiscoveryPingAt === continueDiscoveryPingRef.current) return
+    continueDiscoveryPingRef.current = continueDiscoveryPingAt
+    void handleContinueDiscovery()
+  }, [continueDiscoveryPingAt, handleContinueDiscovery])
+
   const doStream = useCallback(async (text: string, isInitial = false) => {
     const sid = startupIdRef.current
     const sessId = sessionIdRef.current
     if (!sid || !sessId) return
 
     if (!isInitial) {
-      setMessages((prev) => [...prev, { role: 'user', content: text }])
+      setMessages((prev) => {
+        const updated = prev.map((msg, idx) =>
+          idx === prev.length - 1 && msg.role === 'ai' && msg.choices?.length
+            ? { ...msg, choicesDismissed: true }
+            : msg,
+        )
+        return [...updated, { role: 'user', content: text }]
+      })
+      setPendingChoice(null)
     }
     setIsStreaming(true)
     setStreamingInStore(true)
@@ -81,10 +186,20 @@ export function ConversationPane() {
           return updated
         })
       },
-      onComplete: () => {
+      onComplete: (_jobId, choices) => {
         setIsStreaming(false)
         setStreamingInStore(false)
         pingExchange()
+        if (choices && choices.length > 0) {
+          setMessages((prev) => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            if (last?.role === 'ai') {
+              updated[updated.length - 1] = { ...last, choices }
+            }
+            return updated
+          })
+        }
       },
       onError: (_message, status) => {
         setIsStreaming(false)
@@ -113,9 +228,35 @@ export function ConversationPane() {
     doStream('Let\'s begin the founder discovery session.', true)
   }, [startupId, sessionId, doStream])
 
+  const handleChoiceSelect = useCallback((choice: AnswerChoice, messageIndex: number) => {
+    if (isStreaming || isSessionComplete) return
+    setInputValue(choice.text)
+    setPendingChoice(choice.text)
+    setIsTyping(true)
+    setMessages((prev) =>
+      prev.map((msg, idx) =>
+        idx === messageIndex && msg.role === 'ai'
+          ? { ...msg, selectedChoice: choice.text }
+          : msg,
+      ),
+    )
+    textareaRef.current?.focus()
+  }, [isStreaming, isSessionComplete, setIsTyping, textareaRef])
+
   const handleSend = useCallback(() => {
     const text = inputValue.trim()
     if (!text || isStreaming) return
+
+    if (pendingChoice && text === pendingChoice && text.length < 120) {
+      setLowEffortBanner(true)
+      return
+    }
+
+    if (text.length < 40 && !window.confirm('Short answers slow discovery. Send anyway?')) {
+      return
+    }
+
+    setLowEffortBanner(false)
     setInputValue('')
     setIsTyping(false)
     if (textareaRef.current) {
@@ -229,6 +370,20 @@ export function ConversationPane() {
                   />
                 )}
               </p>
+              {msg.role === 'ai' &&
+                msg.choices &&
+                msg.choices.length > 0 &&
+                !msg.choicesDismissed &&
+                !isStreaming &&
+                canShowChoices &&
+                i === messages.length - 1 && (
+                  <AnswerChoices
+                    choices={msg.choices}
+                    selectedChoice={msg.selectedChoice ?? pendingChoice}
+                    disabled={isSessionComplete}
+                    onSelect={(choice) => handleChoiceSelect(choice, i)}
+                  />
+                )}
             </motion.div>
           ),
         )}
@@ -281,6 +436,47 @@ export function ConversationPane() {
           )}
         </AnimatePresence>
 
+        {showDiscoveryGate ? (
+          <div className="flex flex-col gap-2">
+            <p className="font-mono text-[10px] text-muted tracking-[0.02em] m-0 pl-1">
+              {understanding.earlyExitDismissed
+                ? 'You\'ve reached 90% understanding — continue exploring or generate your assessment.'
+                : 'You\'ve reached 80% understanding — continue exploring or generate your assessment.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleContinueDiscovery()}
+              disabled={isGeneratingChoices}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl h-11 font-semibold tracking-[-0.01em] transition-all duration-200 disabled:opacity-60"
+              style={{
+                fontSize: 13,
+                background: 'rgba(79,250,176,0.12)',
+                color: 'var(--primary)',
+                border: '1px solid rgba(79,250,176,0.35)',
+              }}
+            >
+              {isGeneratingChoices ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating suggestions…
+                </>
+              ) : (
+                'Continue Discovery'
+              )}
+            </button>
+          </div>
+        ) : (
+        <>
+        {lowEffortBanner && (
+          <p className="font-mono text-[10px] text-muted tracking-[0.02em] m-0 mb-2 pl-1">
+            Add your specifics — who, when, and a real example — before sending.
+          </p>
+        )}
+        {!isSessionComplete && !showDiscoveryGate && understanding.weakestCategory && (
+          <p className="font-mono text-[10px] text-muted tracking-[0.02em] m-0 mb-2 pl-1">
+            Focus: {FOCUS_LABEL[understanding.weakestCategory]} — specific examples and numbers help Xenysis understand faster.
+          </p>
+        )}
         <div
           className="flex flex-col bg-card rounded-2xl transition-[border-color,box-shadow] duration-200"
           style={{
@@ -298,11 +494,19 @@ export function ConversationPane() {
             onChange={(e) => {
               setInputValue(e.target.value)
               setIsTyping(e.target.value.length > 0)
+              if (lowEffortBanner) setLowEffortBanner(false)
+              if (pendingChoice && e.target.value !== pendingChoice) {
+                setPendingChoice(null)
+              }
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="What are you building? Describe your idea, target customers, and the problem you're solving…"
+            placeholder={
+              pendingChoice
+                ? 'Refine your selected answer — add details, context, or corrections…'
+                : composerPlaceholder
+            }
             disabled={isStreaming || isSessionComplete}
             rows={1}
             aria-label="Message composer"
@@ -340,6 +544,8 @@ export function ConversationPane() {
             </button>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   )
