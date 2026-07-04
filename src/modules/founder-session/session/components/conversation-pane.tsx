@@ -11,11 +11,27 @@ import {
   generateChoices,
 } from '@/modules/founder-session/services/sessions'
 import { useUnderstanding } from '@/modules/founder-session/session/hooks/use-understanding'
+import { FOCUS_LABEL, type UnderstandingCategory } from '@/modules/founder-session/types/understanding'
 import { AnswerChoices } from '@/modules/founder-session/session/components/answer-choices'
 import type { AnswerChoice } from '@/modules/founder-session/utils/answer-choices'
 
 const LINE_HEIGHT = 22
 const MAX_ROWS = 9
+
+const COMPOSER_PLACEHOLDERS: Record<UnderstandingCategory, string> = {
+  problem:     'Describe the specific pain — who feels it, how often, and what workaround they use today…',
+  customer:    'Name the buyer — role, company size, and what triggers them to search for a solution…',
+  solution:      'Explain what you\'re building and why it beats the current workaround…',
+  market:      'Share market size, growth signals, or timing — include numbers if you have them…',
+  pricing:     'Describe your revenue model, price point, and any willingness-to-pay signals…',
+  competition: 'Name competitors or alternatives and why customers would switch to you…',
+  risks:       'Describe the biggest threat and your key unproven assumption…',
+  founder_fit: 'Share your domain expertise, customer access, and why you can win…',
+  supply_side: 'Explain how you recruit, onboard, and retain supply-side participants…',
+}
+
+const DEFAULT_PLACEHOLDER =
+  'What are you building? Describe your idea, target customers, and the problem you\'re solving…'
 
 function useAutoResize(value: string) {
   const ref = useRef<HTMLTextAreaElement>(null)
@@ -62,6 +78,11 @@ export function ConversationPane() {
   const [gateDismissedThisCycle, setGateDismissedThisCycle] = useState(false)
   const [choicesUnlocked, setChoicesUnlocked] = useState(false)
   const [isGeneratingChoices, setIsGeneratingChoices] = useState(false)
+  const [lowEffortBanner, setLowEffortBanner] = useState(false)
+
+  const composerPlaceholder = understanding.weakestCategory
+    ? COMPOSER_PLACEHOLDERS[understanding.weakestCategory]
+    : DEFAULT_PLACEHOLDER
 
   const scrollEndRef   = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
@@ -225,6 +246,17 @@ export function ConversationPane() {
   const handleSend = useCallback(() => {
     const text = inputValue.trim()
     if (!text || isStreaming) return
+
+    if (pendingChoice && text === pendingChoice && text.length < 120) {
+      setLowEffortBanner(true)
+      return
+    }
+
+    if (text.length < 40 && !window.confirm('Short answers slow discovery. Send anyway?')) {
+      return
+    }
+
+    setLowEffortBanner(false)
     setInputValue('')
     setIsTyping(false)
     if (textareaRef.current) {
@@ -434,6 +466,17 @@ export function ConversationPane() {
             </button>
           </div>
         ) : (
+        <>
+        {lowEffortBanner && (
+          <p className="font-mono text-[10px] text-muted tracking-[0.02em] m-0 mb-2 pl-1">
+            Add your specifics — who, when, and a real example — before sending.
+          </p>
+        )}
+        {!isSessionComplete && !showDiscoveryGate && understanding.weakestCategory && (
+          <p className="font-mono text-[10px] text-muted tracking-[0.02em] m-0 mb-2 pl-1">
+            Focus: {FOCUS_LABEL[understanding.weakestCategory]} — specific examples and numbers help Xenysis understand faster.
+          </p>
+        )}
         <div
           className="flex flex-col bg-card rounded-2xl transition-[border-color,box-shadow] duration-200"
           style={{
@@ -451,6 +494,7 @@ export function ConversationPane() {
             onChange={(e) => {
               setInputValue(e.target.value)
               setIsTyping(e.target.value.length > 0)
+              if (lowEffortBanner) setLowEffortBanner(false)
               if (pendingChoice && e.target.value !== pendingChoice) {
                 setPendingChoice(null)
               }
@@ -461,7 +505,7 @@ export function ConversationPane() {
             placeholder={
               pendingChoice
                 ? 'Refine your selected answer — add details, context, or corrections…'
-                : 'What are you building? Describe your idea, target customers, and the problem you\'re solving…'
+                : composerPlaceholder
             }
             disabled={isStreaming || isSessionComplete}
             rows={1}
@@ -500,6 +544,7 @@ export function ConversationPane() {
             </button>
           </div>
         </div>
+        </>
         )}
       </div>
     </div>

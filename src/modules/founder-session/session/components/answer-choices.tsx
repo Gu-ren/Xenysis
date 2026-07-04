@@ -24,7 +24,7 @@ export function AnswerChoices({
         className="font-mono uppercase"
         style={{ fontSize: 9, letterSpacing: '0.08em', color: 'rgba(85,85,85,1)' }}
       >
-        Suggested answers — pick one to refine
+        Suggested answers — pick a draft, then add your specifics — role, trigger, and an example
       </span>
       <div className="flex flex-col gap-2">
         {choices.map((choice, idx) => {
