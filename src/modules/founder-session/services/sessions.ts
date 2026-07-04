@@ -1,5 +1,4 @@
-import { apiGet, apiPost, hasBackend } from '@/lib/api'
-import { supabase } from '@/services/auth/client'
+import { apiGet, apiPost, getAccessTokenForRequest, hasBackend } from '@/lib/api'
 import { EMPTY_UNDERSTANDING, type FounderUnderstanding } from '../types/understanding'
 
 export interface ApiSession {
@@ -137,11 +136,7 @@ export async function streamChatMessage(
     return
   }
 
-  let token: string | undefined
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    token = session?.access_token
-  } catch { /* no session */ }
+  const token = getAccessTokenForRequest()
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/startups/${startupId}/sessions/${sessionId}/messages`,

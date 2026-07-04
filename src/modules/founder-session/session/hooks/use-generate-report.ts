@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { supabase } from '@/services/auth/client'
+import { getAccessTokenForRequest } from '@/lib/api'
 import { useFounderSessionStore } from '@/store/founder-session'
 import { useStartupStore } from '@/store/startup'
 
@@ -106,11 +106,7 @@ export function useGenerateReport() {
     const controller = new AbortController()
     abortRef.current = controller
 
-    let token: string | undefined
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      token = session?.access_token
-    } catch { /* proceed without auth */ }
+    const token = getAccessTokenForRequest()
 
     const base = process.env.NEXT_PUBLIC_API_URL ?? ''
 

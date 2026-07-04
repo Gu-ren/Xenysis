@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from './client'
+import { getUser } from './index'
 import type { User } from './types'
 
 interface AuthState {
@@ -9,37 +9,31 @@ interface AuthState {
   loading: boolean
 }
 
-function toAppUser(supabaseUser: { id: string; email?: string; created_at: string }): User {
-  return {
-    id: supabaseUser.id,
-    email: supabaseUser.email ?? '',
-    createdAt: supabaseUser.created_at,
-  }
-}
-
 export function useAuth(): AuthState {
   const [state, setState] = useState<AuthState>({ user: null, loading: true })
 
   useEffect(() => {
-    // getUser() verifies the session against the server (catches deleted accounts)
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setState({
-        user: user ? toAppUser(user) : null,
-        loading: false,
-      })
-    })
+    let active = true
 
-    // Subscribe to all future auth state changes (sign-in, sign-out, token refresh)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState({
-        user: session?.user ? toAppUser(session.user) : null,
-        loading: false,
-      })
-    })
+    async function loadUser() {
+      const user = await getUser()
+      if (active) {
+        setState({ user, loading: false })
+      }
+    }
 
-    return () => subscription.unsubscribe()
+    loadUser()
+
+    const onAuthChange = () => {
+      setState((prev) => ({ ...prev, loading: true }))
+      loadUser()
+    }
+
+    window.addEventListener('auth-change', onAuthChange)
+    return () => {
+      active = false
+      window.removeEventListener('auth-change', onAuthChange)
+    }
   }, [])
 
   return state
