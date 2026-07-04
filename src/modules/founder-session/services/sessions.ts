@@ -112,6 +112,48 @@ export async function requestAssessment(
   return data.understanding
 }
 
+export async function continueDiscovery(
+  startupId: string,
+  sessionId: string,
+): Promise<FounderUnderstanding> {
+  if (!hasBackend) {
+    return { ...EMPTY_UNDERSTANDING, earlyExitDismissed: true, earlyExitEligible: false }
+  }
+  const { data } = await apiPost<Record<string, never>, { data: { understanding: FounderUnderstanding } }>(
+    `/api/v1/startups/${startupId}/sessions/${sessionId}/continue-discovery`,
+    {},
+  )
+  return data.understanding
+}
+
+export async function generateChoices(
+  startupId: string,
+  sessionId: string,
+  questionText: string,
+): Promise<AnswerChoice[]> {
+  if (!hasBackend) {
+    return normalizeAnswerChoices([
+      {
+        label: 'SMB finance teams',
+        text: 'Our primary buyer is a finance lead at a 20–100 person company still reconciling invoices in spreadsheets. They feel the pain when month-end close takes 5+ days and errors create audit risk.',
+      },
+      {
+        label: 'Enterprise CFOs',
+        text: 'We target CFOs at mid-market firms with multi-entity accounting who need real-time visibility across subsidiaries. The trigger is usually a failed audit or a board mandate to cut close time in half.',
+      },
+      {
+        label: 'Freelance accountants',
+        text: 'Independent bookkeepers managing 10–30 client accounts who spend hours chasing receipts and reconciling bank feeds. They look for a solution when a client outgrows their manual workflow.',
+      },
+    ])
+  }
+  const { data } = await apiPost<{ questionText: string }, { data: { choices: unknown[] } }>(
+    `/api/v1/startups/${startupId}/sessions/${sessionId}/generate-choices`,
+    { questionText },
+  )
+  return normalizeAnswerChoices(data.choices)
+}
+
 // ── SSE chat stream ───────────────────────────────────────────────────────────
 
 export interface ChatStreamEvent {

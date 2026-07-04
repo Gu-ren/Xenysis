@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, Loader2 } from 'lucide-react'
 import { useFounderSessionStore } from '@/store/founder-session'
-import { streamChatMessage } from '@/modules/founder-session/services/sessions'
+import {
+  streamChatMessage,
+  continueDiscovery,
+  generateChoices,
+} from '@/modules/founder-session/services/sessions'
+import { useUnderstanding } from '@/modules/founder-session/session/hooks/use-understanding'
 import { AnswerChoices } from '@/modules/founder-session/session/components/answer-choices'
 import type { AnswerChoice } from '@/modules/founder-session/utils/answer-choices'
 
@@ -43,19 +48,36 @@ export function ConversationPane() {
   const isSessionComplete = useFounderSessionStore((s) => s.isSessionComplete)
   const setIsTyping = useFounderSessionStore((s) => s.setIsTyping)
   const setStreamingInStore = useFounderSessionStore((s) => s.setIsStreaming)
+  const continueDiscoveryPingAt = useFounderSessionStore((s) => s.continueDiscoveryPingAt)
   const reset = useFounderSessionStore((s) => s.reset)
+
+  const understanding = useUnderstanding()
+  const { earlyExitEligible } = understanding
 
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [pendingChoice, setPendingChoice] = useState<string | null>(null)
+  const [gateDismissedThisCycle, setGateDismissedThisCycle] = useState(false)
+  const [choicesUnlocked, setChoicesUnlocked] = useState(false)
+  const [isGeneratingChoices, setIsGeneratingChoices] = useState(false)
 
   const scrollEndRef   = useRef<HTMLDivElement>(null)
   const initializedRef = useRef(false)
   const startupIdRef   = useRef(startupId)
   const sessionIdRef   = useRef(sessionId)
+  const prevEligibleRef = useRef(false)
+  const continueDiscoveryPingRef = useRef<number | null>(null)
   const textareaRef    = useAutoResize(inputValue)
+
+  const showDiscoveryGate =
+    earlyExitEligible &&
+    !gateDismissedThisCycle &&
+    !isSessionComplete &&
+    !isStreaming
+
+  const canShowChoices = !showDiscoveryGate || choicesUnlocked
 
   useEffect(() => { startupIdRef.current = startupId }, [startupId])
   useEffect(() => { sessionIdRef.current = sessionId }, [sessionId])
@@ -63,6 +85,54 @@ export function ConversationPane() {
   useEffect(() => {
     scrollEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
+
+  useEffect(() => {
+    if (earlyExitEligible && !prevEligibleRef.current) {
+      setGateDismissedThisCycle(false)
+      setChoicesUnlocked(false)
+    }
+    prevEligibleRef.current = earlyExitEligible
+  }, [earlyExitEligible])
+
+  const handleContinueDiscovery = useCallback(async () => {
+    const sid = startupIdRef.current
+    const sessId = sessionIdRef.current
+    if (!sid || !sessId || isGeneratingChoices || isStreaming) return
+
+    const lastAiIndex = messages.findLastIndex((m) => m.role === 'ai')
+    const lastAi = lastAiIndex >= 0 ? messages[lastAiIndex] : null
+    if (!lastAi?.content.trim()) return
+
+    setIsGeneratingChoices(true)
+    try {
+      await continueDiscovery(sid, sessId)
+      setGateDismissedThisCycle(true)
+      setChoicesUnlocked(true)
+      pingExchange()
+
+      const choices = await generateChoices(sid, sessId, lastAi.content)
+      if (choices.length > 0) {
+        setMessages((prev) =>
+          prev.map((msg, idx) =>
+            idx === lastAiIndex && msg.role === 'ai'
+              ? { ...msg, choices }
+              : msg,
+          ),
+        )
+      }
+    } catch {
+      // gate stays active on failure
+    } finally {
+      setIsGeneratingChoices(false)
+    }
+  }, [messages, isGeneratingChoices, isStreaming, pingExchange])
+
+  useEffect(() => {
+    if (!continueDiscoveryPingAt) return
+    if (continueDiscoveryPingAt === continueDiscoveryPingRef.current) return
+    continueDiscoveryPingRef.current = continueDiscoveryPingAt
+    void handleContinueDiscovery()
+  }, [continueDiscoveryPingAt, handleContinueDiscovery])
 
   const doStream = useCallback(async (text: string, isInitial = false) => {
     const sid = startupIdRef.current
@@ -273,6 +343,7 @@ export function ConversationPane() {
                 msg.choices.length > 0 &&
                 !msg.choicesDismissed &&
                 !isStreaming &&
+                canShowChoices &&
                 i === messages.length - 1 && (
                   <AnswerChoices
                     choices={msg.choices}
@@ -333,6 +404,36 @@ export function ConversationPane() {
           )}
         </AnimatePresence>
 
+        {showDiscoveryGate ? (
+          <div className="flex flex-col gap-2">
+            <p className="font-mono text-[10px] text-muted tracking-[0.02em] m-0 pl-1">
+              {understanding.earlyExitDismissed
+                ? 'You\'ve reached 90% understanding — continue exploring or generate your assessment.'
+                : 'You\'ve reached 80% understanding — continue exploring or generate your assessment.'}
+            </p>
+            <button
+              type="button"
+              onClick={() => void handleContinueDiscovery()}
+              disabled={isGeneratingChoices}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl h-11 font-semibold tracking-[-0.01em] transition-all duration-200 disabled:opacity-60"
+              style={{
+                fontSize: 13,
+                background: 'rgba(79,250,176,0.12)',
+                color: 'var(--primary)',
+                border: '1px solid rgba(79,250,176,0.35)',
+              }}
+            >
+              {isGeneratingChoices ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Generating suggestions…
+                </>
+              ) : (
+                'Continue Discovery'
+              )}
+            </button>
+          </div>
+        ) : (
         <div
           className="flex flex-col bg-card rounded-2xl transition-[border-color,box-shadow] duration-200"
           style={{
@@ -399,6 +500,7 @@ export function ConversationPane() {
             </button>
           </div>
         </div>
+        )}
       </div>
     </div>
   )

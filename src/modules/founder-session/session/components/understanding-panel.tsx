@@ -305,15 +305,14 @@ export function UnderstandingPanel() {
   const setIsSessionComplete = useFounderSessionStore((s) => s.setIsSessionComplete)
   const startupId   = useFounderSessionStore((s) => s.startupId)
   const sessionId   = useFounderSessionStore((s) => s.sessionId)
-  const { overallConfidence, isComplete, weakestCategory, earlyExitEligible } = understanding
+  const { overallConfidence, isComplete, weakestCategory, earlyExitEligible, earlyExitDismissed } = understanding
+  const requestContinueDiscovery = useFounderSessionStore((s) => s.requestContinueDiscovery)
 
   const { stage, stageLabel, error: generateError, generate } = useGenerateReport()
   const isGenerating = stage === 'generating-oa' || stage === 'generating-blueprint'
 
-  // Local dismiss state — once dismissed, the CTA is hidden for the rest of this render session.
-  const [earlyExitDismissed, setEarlyExitDismissed] = React.useState(false)
   const [earlyExitError, setEarlyExitError] = React.useState<string | null>(null)
-  const showEarlyExitCta = earlyExitEligible && !isComplete && !earlyExitDismissed
+  const showEarlyExitCta = earlyExitEligible && !isComplete
 
   const handleGenerateReport = async () => {
     const result = await generate()
@@ -623,7 +622,9 @@ export function UnderstandingPanel() {
                 Generate Initial Assessment
               </p>
               <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.38)', lineHeight: 1.55, margin: 0 }}>
-                Xenysis has enough to generate an initial assessment and startup blueprint.
+                {earlyExitDismissed
+                  ? 'Xenysis has reached 90% understanding — generate an assessment or keep exploring.'
+                  : 'Xenysis has reached 80% understanding — generate an assessment or keep exploring.'}
               </p>
             </div>
 
@@ -673,7 +674,7 @@ export function UnderstandingPanel() {
               </button>
 
               <button
-                onClick={() => setEarlyExitDismissed(true)}
+                onClick={() => requestContinueDiscovery()}
                 disabled={isGenerating}
                 className="w-full flex items-center justify-center rounded-[8px] h-8 transition-colors duration-150"
                 style={{
