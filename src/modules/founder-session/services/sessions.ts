@@ -1,5 +1,9 @@
 import { apiGet, apiPost, getAccessTokenForRequest, hasBackend } from '@/lib/api'
 import { EMPTY_UNDERSTANDING, type FounderUnderstanding } from '../types/understanding'
+import {
+  normalizeAnswerChoices,
+  type AnswerChoice,
+} from '../utils/answer-choices'
 
 export interface ApiSession {
   id: string
@@ -112,11 +116,11 @@ export async function requestAssessment(
 
 export interface ChatStreamEvent {
   type: 'delta' | 'done' | 'error'
-  data: { content?: string; jobId?: string; message?: string; choices?: string[] }
+  data: { content?: string; jobId?: string; message?: string; choices?: unknown[] }
 }
 
 export type OnChunk = (content: string) => void
-export type OnComplete = (jobId: string, choices?: string[]) => void
+export type OnComplete = (jobId: string, choices?: AnswerChoice[]) => void
 export type OnError = (message: string, status?: number) => void
 
 export async function streamChatMessage(
@@ -128,10 +132,19 @@ export async function streamChatMessage(
   if (!process.env.NEXT_PUBLIC_API_URL) {
     const mockQuestion =
       'Who is your primary customer — and what triggers them to look for a solution like yours?'
-    const mockChoices = [
-      'Small business owners managing invoices manually',
-      'Mid-market finance teams with compliance pressure',
-      'Freelancers who need simple expense tracking',
+    const mockChoices: AnswerChoice[] = [
+      {
+        label: 'SMB finance teams',
+        text: 'Our primary buyer is a finance lead at a 20–100 person company still reconciling invoices in spreadsheets. They feel the pain when month-end close takes 5+ days and errors create audit risk.',
+      },
+      {
+        label: 'Enterprise CFOs',
+        text: 'We target CFOs at mid-market firms with multi-entity accounting who need real-time visibility across subsidiaries. The trigger is usually a failed audit or a board mandate to cut close time in half.',
+      },
+      {
+        label: 'Freelance accountants',
+        text: 'Independent bookkeepers managing 10–30 client accounts who spend hours chasing receipts and reconciling bank feeds. They look for a solution when a client outgrows their manual workflow.',
+      },
     ]
     const words = mockQuestion.split(' ')
     for (const word of words) {
@@ -180,7 +193,10 @@ export async function streamChatMessage(
         if (event.type === 'delta' && event.data.content) {
           callbacks.onChunk(event.data.content)
         } else if (event.type === 'done' && event.data.jobId) {
-          callbacks.onComplete(event.data.jobId, event.data.choices)
+          const choices = event.data.choices?.length
+            ? normalizeAnswerChoices(event.data.choices)
+            : undefined
+          callbacks.onComplete(event.data.jobId, choices)
         } else if (event.type === 'error' && event.data.message) {
           callbacks.onError(event.data.message)
         }

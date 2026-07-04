@@ -7,6 +7,7 @@ import { Send, Loader2 } from 'lucide-react'
 import { useFounderSessionStore } from '@/store/founder-session'
 import { streamChatMessage } from '@/modules/founder-session/services/sessions'
 import { AnswerChoices } from '@/modules/founder-session/session/components/answer-choices'
+import type { AnswerChoice } from '@/modules/founder-session/utils/answer-choices'
 
 const LINE_HEIGHT = 22
 const MAX_ROWS = 9
@@ -29,7 +30,7 @@ function useAutoResize(value: string) {
 interface Message {
   role: 'user' | 'ai'
   content: string
-  choices?: string[]
+  choices?: AnswerChoice[]
   selectedChoice?: string
   choicesDismissed?: boolean
 }
@@ -136,15 +137,15 @@ export function ConversationPane() {
     doStream('Let\'s begin the founder discovery session.', true)
   }, [startupId, sessionId, doStream])
 
-  const handleChoiceSelect = useCallback((choice: string, messageIndex: number) => {
+  const handleChoiceSelect = useCallback((choice: AnswerChoice, messageIndex: number) => {
     if (isStreaming || isSessionComplete) return
-    setInputValue(choice)
-    setPendingChoice(choice)
+    setInputValue(choice.text)
+    setPendingChoice(choice.text)
     setIsTyping(true)
     setMessages((prev) =>
       prev.map((msg, idx) =>
         idx === messageIndex && msg.role === 'ai'
-          ? { ...msg, selectedChoice: choice }
+          ? { ...msg, selectedChoice: choice.text }
           : msg,
       ),
     )
