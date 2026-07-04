@@ -5,8 +5,10 @@ import { motion, useScroll, useTransform } from "framer-motion"
 import { ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { HeroBgSVG } from "./hero-bg-svg"
+import { useJourneyContent } from "../use-journey-content"
 
 export function HeroSection() {
+  const { hero } = useJourneyContent()
   const ref = useRef<HTMLElement>(null)
   const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end start"] })
   const y = useTransform(scrollYProgress, [0, 1], [0, -60])
@@ -39,7 +41,7 @@ export function HeroSection() {
             color: "rgba(255,255,255,0.95)",
           }}
         >
-          Your AI technical cofounder.
+          {hero.headline}
         </motion.h1>
 
         {/* Subheading */}
@@ -53,7 +55,7 @@ export function HeroSection() {
             color: "rgba(255,255,255,0.55)",
           }}
         >
-          Build companies, not just software.
+          {hero.subheadline}
         </motion.p>
 
         {/* Body */}
@@ -64,7 +66,7 @@ export function HeroSection() {
           className="font-sans text-base font-normal leading-relaxed mx-auto mb-14"
           style={{ color: "rgba(255,255,255,0.38)", maxWidth: "460px" }}
         >
-          Turn startup ideas into validation-ready startup systems through AI-guided founder sessions.
+          {hero.body}
         </motion.p>
 
         {/* CTAs */}
@@ -75,7 +77,7 @@ export function HeroSection() {
           className="flex flex-wrap items-center justify-center gap-4"
         >
           <Link
-            href="/signup?intent=founder-session"
+            href={hero.ctaHref}
             className="flex items-center gap-2 px-8 py-3.5 rounded-full text-sm font-semibold transition-colors"
             style={{ backgroundColor: "#4ffab0", color: "#111111" }}
             onMouseEnter={(e) => {
@@ -85,7 +87,7 @@ export function HeroSection() {
               e.currentTarget.style.backgroundColor = "#4ffab0"
             }}
           >
-            Start Founder Session
+            {hero.ctaLabel}
             <ArrowRight size={15} />
           </Link>
 

@@ -1,1 +1,1 @@
-export { default } from "@/modules/landing/LandingPage"
+export { default } from "@/modules/home/HomePage"

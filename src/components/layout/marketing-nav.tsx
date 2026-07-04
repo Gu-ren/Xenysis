@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 const JOURNEY_STEPS = [
   { step: "01", label: "Session", href: "#session" },
@@ -73,6 +74,8 @@ function NavLink({
 }
 
 export function MarketingNav() {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
   const [scrolled, setScrolled] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -158,17 +161,19 @@ export function MarketingNav() {
           </Link>
 
           {/* Journey steps — center */}
-          <div className="flex items-center gap-9">
-            {JOURNEY_STEPS.map((s) => (
-              <NavLink
-                key={s.href}
-                label={s.label}
-                href={s.href}
-                isActive={activeSection === s.href.replace("#", "")}
-                labelSize={14}
-              />
-            ))}
-          </div>
+          {!isHome && (
+            <div className="flex items-center gap-9">
+              {JOURNEY_STEPS.map((s) => (
+                <NavLink
+                  key={s.href}
+                  label={s.label}
+                  href={s.href}
+                  isActive={activeSection === s.href.replace("#", "")}
+                  labelSize={14}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Utility + CTA — right */}
           <div className="flex items-center gap-5 shrink-0">
@@ -222,17 +227,19 @@ export function MarketingNav() {
           </Link>
 
           {/* Journey steps — center */}
-          <div className="flex items-center gap-6 flex-1 justify-center">
-            {JOURNEY_STEPS.map((s) => (
-              <NavLink
-                key={s.href}
-                label={s.label}
-                href={s.href}
-                isActive={activeSection === s.href.replace("#", "")}
-                labelSize={13}
-              />
-            ))}
-          </div>
+          {!isHome && (
+            <div className="flex items-center gap-6 flex-1 justify-center">
+              {JOURNEY_STEPS.map((s) => (
+                <NavLink
+                  key={s.href}
+                  label={s.label}
+                  href={s.href}
+                  isActive={activeSection === s.href.replace("#", "")}
+                  labelSize={13}
+                />
+              ))}
+            </div>
+          )}
 
           {/* Utility + CTA — right */}
           <div className="flex items-center gap-4 shrink-0">
@@ -377,6 +384,7 @@ export function MarketingNav() {
               </div>
 
               {/* Journey steps — large */}
+              {!isHome && (
               <div className="flex-1 flex flex-col justify-center px-8 gap-0">
                 {JOURNEY_STEPS.map((s, i) => (
                   <motion.button
@@ -420,6 +428,7 @@ export function MarketingNav() {
                   </motion.button>
                 ))}
               </div>
+              )}
 
               {/* Panel footer */}
               <div

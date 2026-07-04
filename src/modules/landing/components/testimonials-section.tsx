@@ -1,18 +1,20 @@
 "use client"
 
 import { MonoLabel } from "@/components/ui/mono-label"
-import { TESTIMONIALS } from "../constants"
+import { useJourneyContent } from "../use-journey-content"
 
 export function TestimonialsSection() {
+  const { testimonials } = useJourneyContent()
+
   return (
     <section className="py-32 px-8" style={{ backgroundColor: "#F5F5F3" }}>
       <div className="absolute top-0 left-0 right-0 h-px" style={{ backgroundColor: "rgba(0,0,0,0.08)" }} />
 
       <div className="w-full max-w-[1280px] mx-auto">
-        <MonoLabel className="block mb-16 text-center">WHAT FOUNDERS SAY</MonoLabel>
+        <MonoLabel className="block mb-16 text-center">WHAT PEOPLE SAY</MonoLabel>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {TESTIMONIALS.map((t) => (
+          {testimonials.map((t) => (
             <div
               key={t.author}
               className="flex flex-col justify-between p-8 rounded-2xl"
