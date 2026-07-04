@@ -1,8 +1,6 @@
 import { Layout, Database, Lock, CreditCard, Cloud, Zap } from "lucide-react"
 import type {
   FeatureItem,
-  TestimonialItem,
-  DialogueLine,
   SystemNode,
   SystemEdge,
   DeployStep,
@@ -18,36 +16,6 @@ export const FEATURES: FeatureItem[] = [
   { icon: CreditCard, title: "Billing", description: "Stripe integration, plans, and invoices" },
   { icon: Cloud, title: "Deploy", description: "Zero-config CI/CD pipeline" },
   { icon: Zap, title: "Workflow", description: "Automated triggers and task logic" },
-]
-
-export const TESTIMONIALS: TestimonialItem[] = [
-  {
-    quote: "I stopped wasting weeks deciding what to build. Xenysis forced clarity before I wrote a single line.",
-    author: "YC Applicant",
-    role: "SOLO FOUNDER",
-  },
-  {
-    quote: "It felt like having a technical cofounder who challenged every assumption.",
-    author: "Bootstrapped Founder",
-    role: "INDIE HACKER",
-  },
-  {
-    quote: "Xenysis questioned my target user before I even asked. That alone saved me three months.",
-    author: "First-Time Founder",
-    role: "SOLO FOUNDER",
-  },
-]
-
-export const DIALOGUE: DialogueLine[] = [
-  { id: "q1", speaker: "ai", text: "Who are your target users and what problem do they face daily?" },
-  { id: "a1", speaker: "founder", text: "I want to help remote teams run async standups with AI summaries." },
-  { id: "q2", speaker: "ai", text: "What's your business model — subscription, usage-based, or marketplace?" },
-  { id: "a2", speaker: "founder", text: "Team Management, Async Standup, AI Digest, Notifications." },
-  {
-    id: "q3",
-    speaker: "ai",
-    text: "Market fit validated. 3 comparable products found. Differentiation: AI-native, async-first.",
-  },
 ]
 
 export const SYSTEM_NODES: SystemNode[] = [
@@ -155,9 +123,8 @@ export const FOOTER_SECTIONS: FooterSection[] = [
   {
     heading: "NAVIGATE",
     links: [
-      { label: "How It Works",          href: "#how-it-works" },
-      { label: "Pricing",               href: "#pricing" },
-      { label: "Start Founder Session", href: "/founder-session" },
+      { label: "How It Works", href: "#how-it-works" },
+      { label: "Pricing",      href: "#pricing" },
     ],
   },
   {

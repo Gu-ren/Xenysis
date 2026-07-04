@@ -1,5 +1,7 @@
 import type { ElementType } from "react"
 
+export type Journey = "startup" | "business"
+
 export interface FeatureItem {
   icon: ElementType
   title: string
@@ -68,4 +70,47 @@ export interface FooterLink {
 export interface FooterSection {
   heading: string
   links: FooterLink[]
+}
+
+export interface JourneyContent {
+  hero: {
+    headline: string
+    subheadline: string
+    body: string
+    ctaLabel: string
+    ctaHref: string
+  }
+  session: {
+    eyebrow: string
+    headingLine1: string
+    headingLine2: string
+    body: string
+    pulseLabel: string
+    dialogue: DialogueLine[]
+  }
+  blueprint: {
+    eyebrow: string
+    headingLine1: string
+    headingLine2: string
+    body: string
+    nodeFounderLabel: string
+    nodeSystemLabel: string
+  }
+  workspace: {
+    eyebrow: string
+    headingLine1: string
+    headingLine2: string
+    badge: string
+  }
+  deploy: {
+    eyebrow: string
+    headingLine1: string
+    headingLine2: string
+    body: string
+    panelLabel: string
+  }
+  testimonials: TestimonialItem[]
+  footerTagline: string
+  footerCtaLabel: string
+  footerCtaHref: string
 }

@@ -4,8 +4,10 @@ import { useRef } from "react"
 import { motion, useScroll, useSpring, useTransform } from "framer-motion"
 import { MonoLabel } from "@/components/ui/mono-label"
 import { DEPLOY_STEPS } from "../constants"
+import { useJourneyContent } from "../use-journey-content"
 
 export function DeploySection() {
+  const { deploy } = useJourneyContent()
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -32,21 +34,21 @@ export function DeploySection() {
           {/* Left: heading */}
           <div>
             <MonoLabel className="block mb-8" style={{ color: "rgba(255,255,255,0.3)" }}>
-              04 / Launch
+              {deploy.eyebrow}
             </MonoLabel>
             <h2
               className="mb-6 font-sans font-medium tracking-[-0.025em] leading-[1.1]"
               style={{ fontSize: "clamp(32px, 4vw, 56px)", color: "#FFFFFF" }}
             >
-              Ship in minutes.
+              {deploy.headingLine1}
               <br />
-              <span style={{ color: "rgba(255,255,255,0.35)" }}>Not weeks.</span>
+              <span style={{ color: "rgba(255,255,255,0.35)" }}>{deploy.headingLine2}</span>
             </h2>
             <p
               className="font-sans text-base font-normal leading-[1.7] max-w-[360px]"
               style={{ color: "rgba(255,255,255,0.45)" }}
             >
-              Zero-config CI/CD. Every startup ships with a production-ready pipeline — preview, test, and go live in one session.
+              {deploy.body}
             </p>
           </div>
 
@@ -61,7 +63,7 @@ export function DeploySection() {
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.12)" }} />
               <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.12)" }} />
               <MonoLabel className="ml-3" style={{ color: "rgba(255,255,255,0.25)" }}>
-                DEPLOYMENT PIPELINE
+                {deploy.panelLabel}
               </MonoLabel>
             </div>
 

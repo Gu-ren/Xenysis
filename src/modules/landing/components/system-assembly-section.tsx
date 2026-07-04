@@ -5,6 +5,7 @@ import { motion, useScroll, useSpring, useTransform } from "framer-motion"
 import { MonoLabel } from "@/components/ui/mono-label"
 import { FeatureCard } from "./feature-card"
 import { FEATURES, SYSTEM_NODES, SYSTEM_EDGES } from "../constants"
+import { useJourneyContent } from "../use-journey-content"
 
 function SystemEdgeItem({
   x1, y1, x2, y2, index, smooth,
@@ -24,10 +25,11 @@ function SystemEdgeItem({
 }
 
 function SystemNodeItem({
-  node, index, smooth,
+  node, index, smooth, label,
 }: {
   node: (typeof SYSTEM_NODES)[number]; index: number
   smooth: ReturnType<typeof useSpring>
+  label: string
 }) {
   const nodeOpacity = useTransform(smooth, [index * 0.06 + 0.02, index * 0.06 + 0.14], [0, 1])
   const nodeY = useTransform(smooth, [index * 0.06 + 0.02, index * 0.06 + 0.14], [10, 0])
@@ -68,13 +70,18 @@ function SystemNodeItem({
         fontWeight={isAccent ? "600" : "500"}
         letterSpacing="0.06em"
       >
-        {node.label}
+        {label}
       </text>
     </motion.g>
   )
 }
 
 export function SystemAssemblySection() {
+  const { blueprint } = useJourneyContent()
+  const nodeLabels: Record<string, string> = {
+    founder: blueprint.nodeFounderLabel,
+    system: blueprint.nodeSystemLabel,
+  }
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -98,21 +105,21 @@ export function SystemAssemblySection() {
         <div className="w-full max-w-[1280px] mx-auto px-8">
           <div className="mb-14">
             <MonoLabel className="block mb-6" style={{ color: "rgba(255,255,255,0.3)" }}>
-              02 / Blueprint
+              {blueprint.eyebrow}
             </MonoLabel>
             <h2
               className="mb-4 font-sans font-medium tracking-[-0.025em] leading-[1.1]"
               style={{ fontSize: "clamp(32px, 4vw, 56px)", color: "#FFFFFF" }}
             >
-              Everything your startup needs.
+              {blueprint.headingLine1}
               <br />
-              <span style={{ color: "rgba(255,255,255,0.35)" }}>Assembled in one founder session.</span>
+              <span style={{ color: "rgba(255,255,255,0.35)" }}>{blueprint.headingLine2}</span>
             </h2>
             <p
               className="font-sans text-base font-normal leading-[1.7] max-w-[480px]"
               style={{ color: "rgba(255,255,255,0.45)" }}
             >
-              Six production-ready modules generated around your startup intent — not around code prompts.
+              {blueprint.body}
             </p>
           </div>
 
@@ -134,7 +141,13 @@ export function SystemAssemblySection() {
                   <SystemEdgeItem key={edge.id} {...edge} index={i} smooth={smooth} />
                 ))}
                 {SYSTEM_NODES.map((node, i) => (
-                  <SystemNodeItem key={node.id} node={node} index={i} smooth={smooth} />
+                  <SystemNodeItem
+                    key={node.id}
+                    node={node}
+                    index={i}
+                    smooth={smooth}
+                    label={nodeLabels[node.id] ?? node.label}
+                  />
                 ))}
               </svg>
             </div>
