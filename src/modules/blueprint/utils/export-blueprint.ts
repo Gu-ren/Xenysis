@@ -1,12 +1,15 @@
 import type { BlueprintContent } from '../types/blueprint-api'
 
 const EXPORT_WIDTH_PX = 900
+const COVER_HEIGHT_PX = Math.round(EXPORT_WIDTH_PX * (841.89 / 595.28))
 const CANVAS_SCALE = 2
 const SECTION_GAP_PX = 12
 const FOOTER_RESERVED_PX = 28
+const HORIZONTAL_MARGIN_PX = 48
 
 export interface ExportBlueprintOptions {
   generatedAt?: string
+  logoUrl?: string
 }
 
 function label(value: string): string {
@@ -47,10 +50,31 @@ export function getBlueprintExportStyles(): string {
       max-width: ${EXPORT_WIDTH_PX}px;
       margin: 0 auto;
     }
+    header, section {
+      padding-left: 56px;
+      padding-right: 56px;
+    }
     header { margin-bottom: 40px; border-bottom: 2px solid #111; padding-bottom: 20px; }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 18px;
+    }
+    .logo {
+      height: 28px;
+      width: 28px;
+      border-radius: 6px;
+      display: block;
+    }
+    .brand-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+      letter-spacing: -0.2px;
+    }
     header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.5px; }
     header .meta { font-size: 12px; color: #555; margin-top: 6px; }
-    header .accent { color: #16a34a; font-weight: 600; }
     section { margin-bottom: 36px; page-break-inside: avoid; }
     h2 {
       font-size: 16px;
@@ -102,12 +126,203 @@ export function getBlueprintExportStyles(): string {
     .badge-high     { background: #fef3c7; color: #92400e; }
     .badge-medium   { background: #dbeafe; color: #1e40af; }
     .badge-low      { background: #f3f4f6; color: #374151; }
+    .cover-page {
+      width: ${EXPORT_WIDTH_PX}px;
+      height: ${COVER_HEIGHT_PX}px;
+      background: #0a0a0a;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 72px 64px 64px;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+    }
+    .cover-page::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(16, 185, 129, 0.18), transparent 60%),
+        radial-gradient(ellipse 60% 40% at 100% 100%, rgba(16, 185, 129, 0.08), transparent 55%);
+      pointer-events: none;
+    }
+    .cover-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: linear-gradient(to bottom, black 20%, transparent 85%);
+      pointer-events: none;
+    }
+    .cover-accent-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #059669, #34d399, #059669);
+    }
+    .cover-top,
+    .cover-center,
+    .cover-bottom {
+      position: relative;
+      z-index: 1;
+    }
+    .cover-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .cover-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: block;
+    }
+    .cover-brand {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .cover-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: #34d399;
+      margin-bottom: 20px;
+    }
+    .cover-title {
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: -0.8px;
+      color: #fff;
+      margin-bottom: 24px;
+      max-width: 90%;
+    }
+    .cover-subtitle {
+      font-size: 15px;
+      line-height: 1.65;
+      color: rgba(255, 255, 255, 0.45);
+      max-width: 85%;
+    }
+    .cover-divider {
+      width: 48px;
+      height: 3px;
+      background: linear-gradient(90deg, #10b981, transparent);
+      margin: 32px 0;
+      border-radius: 2px;
+    }
+    .cover-meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .cover-chip {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      background: rgba(16, 185, 129, 0.08);
+      color: #6ee7b7;
+    }
+    .cover-bottom {
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 24px;
+    }
+    .cover-date {
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.35);
+      letter-spacing: 0.04em;
+    }
+    .cover-edition {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.25);
+      text-align: right;
+    }
+    .cover-spine {
+      position: absolute;
+      left: 28px;
+      top: 120px;
+      bottom: 120px;
+      width: 2px;
+      background: linear-gradient(to bottom, transparent, rgba(16, 185, 129, 0.35), transparent);
+    }
     @media print {
       body { padding: 0; }
       @page { margin: 20mm 18mm; size: A4; }
       section { page-break-inside: avoid; }
       .sub-card { page-break-inside: avoid; }
     }
+  `
+}
+
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`
+}
+
+function blueprintCoverHtml(content: BlueprintContent, options?: ExportBlueprintOptions): string {
+  const { overview, problem, customer } = content
+  const generatedLabel = formatDate(options?.generatedAt)
+  const logoImg = options?.logoUrl
+    ? `<img src="${esc(options.logoUrl)}" alt="Xenysis" class="cover-logo" />`
+    : ''
+
+  const subtitle = truncateText(
+    overview.positionStatement || overview.coreValueProposition,
+    220,
+  )
+  const severityLabel = label(problem.problemSeverity)
+  const primarySegment = customer.segments.find((s) => s.isPrimaryBuyer)?.name
+    ?? customer.segments[0]?.name
+    ?? truncateText(customer.icp.title, 40)
+
+  return `
+  <div class="cover-page">
+    <div class="cover-accent-bar"></div>
+    <div class="cover-grid"></div>
+    <div class="cover-spine"></div>
+
+    <div class="cover-top">
+      ${logoImg}
+      <span class="cover-brand">Xenysis</span>
+    </div>
+
+    <div class="cover-center">
+      <p class="cover-label">Startup Blueprint</p>
+      <h1 class="cover-title">${esc(overview.tagline)}</h1>
+      <div class="cover-divider"></div>
+      <p class="cover-subtitle">${esc(subtitle)}</p>
+      <div class="cover-meta-row">
+        <span class="cover-chip">${esc(severityLabel)} Problem</span>
+        <span class="cover-chip">${esc(primarySegment)}</span>
+        <span class="cover-chip">Build-Ready</span>
+      </div>
+    </div>
+
+    <div class="cover-bottom">
+      <p class="cover-date">Generated ${esc(generatedLabel)}</p>
+      <p class="cover-edition">Confidential · Founder Edition</p>
+    </div>
+  </div>
   `
 }
 
@@ -269,10 +484,19 @@ export function blueprintToHtmlBody(content: BlueprintContent, options?: ExportB
     </table>
   `)
 
+  const logoImg = options?.logoUrl
+    ? `<img src="${esc(options.logoUrl)}" alt="Xenysis" class="logo" />`
+    : ''
+
   return `
+  ${blueprintCoverHtml(content, options)}
   <header>
+    <div class="brand-row">
+      ${logoImg}
+      <span class="brand-name">Xenysis</span>
+    </div>
     <h1>${esc(overview.tagline)}</h1>
-    <p class="meta">Startup Blueprint &nbsp;·&nbsp; <span class="accent">Xenysis</span> &nbsp;·&nbsp; Generated ${esc(generatedLabel)}</p>
+    <p class="meta">Startup Blueprint &nbsp;·&nbsp; Generated ${esc(generatedLabel)}</p>
   </header>
   ${overviewHtml}
   ${problemHtml}
@@ -335,17 +559,65 @@ async function renderExportIframe(html: string): Promise<{ iframe: HTMLIFrameEle
   return { iframe, doc }
 }
 
-function addPageFooters(pdf: InstanceType<typeof import('jspdf').default>, dateLabel: string): void {
+async function waitForImages(doc: Document): Promise<void> {
+  const images = Array.from(doc.images)
+  await Promise.all(
+    images.map(
+      (img) =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise<void>((resolve) => {
+              img.onload = () => resolve()
+              img.onerror = () => resolve()
+            }),
+    ),
+  )
+}
+
+function addPageFooters(
+  pdf: InstanceType<typeof import('jspdf').default>,
+  dateLabel: string,
+  hasCover = false,
+): void {
   const total = pdf.getNumberOfPages()
   const pageW = pdf.internal.pageSize.getWidth()
   const pageH = pdf.internal.pageSize.getHeight()
+  const contentPages = hasCover ? total - 1 : total
 
   for (let i = 1; i <= total; i++) {
+    if (hasCover && i === 1) continue
+
     pdf.setPage(i)
     pdf.setFontSize(9)
     pdf.setTextColor(120, 120, 120)
-    pdf.text(`Xenysis · ${dateLabel} · Page ${i} of ${total}`, pageW / 2, pageH - 12, { align: 'center' })
+    const pageNum = hasCover ? i - 1 : i
+    pdf.text(
+      `Xenysis · ${dateLabel} · Page ${pageNum} of ${contentPages}`,
+      pageW / 2,
+      pageH - 12,
+      { align: 'center' },
+    )
   }
+}
+
+async function renderCoverPage(
+  pdf: InstanceType<typeof import('jspdf').default>,
+  cover: HTMLElement,
+  html2canvas: typeof import('html2canvas').default,
+): Promise<void> {
+  const pageW = pdf.internal.pageSize.getWidth()
+  const pageH = pdf.internal.pageSize.getHeight()
+
+  const canvas = await html2canvas(cover, {
+    scale: CANVAS_SCALE,
+    useCORS: true,
+    backgroundColor: '#0a0a0a',
+    windowWidth: EXPORT_WIDTH_PX,
+    height: COVER_HEIGHT_PX,
+  })
+
+  const imgData = canvas.toDataURL('image/png')
+  pdf.addImage(imgData, 'PNG', 0, 0, pageW, pageH)
 }
 
 function addImageSlice(
@@ -355,7 +627,7 @@ function addImageSlice(
   imgH: number,
   y: number,
 ): void {
-  pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH)
+  pdf.addImage(imgData, 'PNG', HORIZONTAL_MARGIN_PX, y, imgW, imgH)
 }
 
 function placeBlockOnPdf(
@@ -363,7 +635,6 @@ function placeBlockOnPdf(
   imgData: string,
   imgW: number,
   imgH: number,
-  pageW: number,
   contentHeight: number,
   state: { cursorY: number },
 ): void {
@@ -408,19 +679,32 @@ export async function exportBlueprintAsPdf(
     import('html2canvas'),
   ])
 
-  const html = blueprintToHtmlDocument(content, slug, options)
+  const exportOptions: ExportBlueprintOptions = {
+    ...options,
+    logoUrl: options?.logoUrl ?? `${window.location.origin}/logo.svg`,
+  }
+  const html = blueprintToHtmlDocument(content, slug, exportOptions)
   const dateLabel = formatDate(options?.generatedAt)
   const { iframe, doc } = await renderExportIframe(html)
 
   try {
+    await waitForImages(doc)
+
+    const cover = doc.querySelector('.cover-page') as HTMLElement | null
     const blocks = Array.from(doc.body.querySelectorAll('header, section'))
     if (!blocks.length) throw new Error('No blueprint content to export')
 
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
     const pageW = pdf.internal.pageSize.getWidth()
     const pageH = pdf.internal.pageSize.getHeight()
+    const contentW = pageW - 2 * HORIZONTAL_MARGIN_PX
     const contentHeight = pageH - FOOTER_RESERVED_PX
     const state = { cursorY: 0 }
+
+    if (cover) {
+      await renderCoverPage(pdf, cover, html2canvas)
+      pdf.addPage()
+    }
 
     for (const block of blocks) {
       const canvas = await html2canvas(block as HTMLElement, {
@@ -431,7 +715,7 @@ export async function exportBlueprintAsPdf(
       })
 
       const imgData = canvas.toDataURL('image/png')
-      const imgW = pageW
+      const imgW = contentW
       const imgH = (canvas.height * imgW) / canvas.width
 
       if (state.cursorY > 0 && state.cursorY + imgH > contentHeight) {
@@ -439,10 +723,10 @@ export async function exportBlueprintAsPdf(
         state.cursorY = 0
       }
 
-      placeBlockOnPdf(pdf, imgData, imgW, imgH, pageW, contentHeight, state)
+      placeBlockOnPdf(pdf, imgData, imgW, imgH, contentHeight, state)
     }
 
-    addPageFooters(pdf, dateLabel)
+    addPageFooters(pdf, dateLabel, Boolean(cover))
     pdf.save(`${slug}.pdf`)
   } finally {
     document.body.removeChild(iframe)
