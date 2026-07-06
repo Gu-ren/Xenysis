@@ -1,5 +1,14 @@
 import type { BlueprintContent } from '../types/blueprint-api'
 
+const EXPORT_WIDTH_PX = 900
+const CANVAS_SCALE = 2
+const SECTION_GAP_PX = 12
+const FOOTER_RESERVED_PX = 28
+
+export interface ExportBlueprintOptions {
+  generatedAt?: string
+}
+
 function label(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
@@ -20,182 +29,13 @@ function section(id: string, title: string, body: string): string {
   return `<section id="${id}"><h2>${esc(title)}</h2>${body}</section>`
 }
 
-function blueprintToHtml(content: BlueprintContent, filename: string): string {
-  const { overview, problem, customer, solution, businessModel, personas, userJourneys, mvpScope, requirements, roadmap, risks, metrics } = content
-  const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+function formatDate(iso?: string): string {
+  const date = iso ? new Date(iso) : new Date()
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+}
 
-  // Overview
-  const overviewHtml = section('overview', 'Overview', `
-    ${field('Tagline', overview.tagline)}
-    ${field('Position Statement', overview.positionStatement)}
-    ${field('Core Value Proposition', overview.coreValueProposition)}
-    ${field('Target Market', overview.targetMarketSummary)}
-  `)
-
-  // Problem
-  const problemHtml = section('problem', 'Problem', `
-    ${field('Statement', problem.statement)}
-    ${field('Severity', label(problem.problemSeverity))}
-    ${field('Why Now', problem.whyNow)}
-    <p><span class="field-key">Pain Points:</span></p>${ul(problem.painPoints)}
-    <p><span class="field-key">Current Alternatives:</span></p>${ul(problem.currentAlternatives)}
-  `)
-
-  // Customer
-  const segmentsHtml = customer.segments.map((s) => `
-    <div class="sub-card">
-      <h4>${esc(s.name)}${s.isPrimaryBuyer ? ' <span class="badge">Primary</span>' : ''}</h4>
-      <p>${esc(s.description)}</p>
-      ${field('Estimated Size', s.estimatedSize)}
-      <p><span class="field-key">Characteristics:</span></p>${ul(s.characteristics)}
-    </div>
-  `).join('')
-
-  const customerHtml = section('customer', 'Customer', `
-    <h3>ICP: ${esc(customer.icp.title)}</h3>
-    <p>${esc(customer.icp.description)}</p>
-    ${field('Job to be Done', customer.icp.jobToBeDone)}
-    ${field('Buyer vs User', label(customer.icp.buyerVsUser))}
-    <h3>Segments</h3>
-    ${segmentsHtml}
-  `)
-
-  // Solution
-  const solutionHtml = section('solution', 'Solution', `
-    <p>${esc(solution.description)}</p>
-    <p><span class="field-key">Core Capabilities:</span></p>${ul(solution.coreCapabilities)}
-    <p><span class="field-key">Differentiators:</span></p>${ul(solution.differentiators)}
-    ${solution.unfairAdvantage ? field('Unfair Advantage', solution.unfairAdvantage) : ''}
-    ${solution.technologyApproach ? field('Technology Approach', solution.technologyApproach) : ''}
-  `)
-
-  // Business Model
-  const streamsHtml = `<ul>${businessModel.revenueStreams.map((rs) =>
-    `<li><strong>${esc(label(rs.type))}${rs.isPrimary ? ' (Primary)' : ''}:</strong> ${esc(rs.description)} — <em>${esc(rs.pricingHypothesis)}</em></li>`
-  ).join('')}</ul>`
-
-  const businessModelHtml = section('business-model', 'Business Model', `
-    ${field('GTM Motion', label(businessModel.gtmMotion))}
-    ${field('Go-to-Market', businessModel.goToMarketSummary)}
-    ${field('Unit Economics', businessModel.unitEconomicsHypothesis)}
-    <p><span class="field-key">Revenue Streams:</span></p>${streamsHtml}
-    <p><span class="field-key">Key Channels:</span></p>${ul(businessModel.keyChannels)}
-  `)
-
-  // Personas
-  const personasHtml = section('personas', 'Personas', personas.personas.map((p) => `
-    <div class="sub-card">
-      <h4>${esc(p.name)}${p.isPrimary ? ' <span class="badge">Primary</span>' : ''} — ${esc(p.role)}</h4>
-      ${field('Demographics', p.demographics)}
-      ${field('Tech Savviness', label(p.techSavviness))}
-      <p><span class="field-key">Goals:</span></p>${ul(p.goals)}
-      <p><span class="field-key">Frustrations:</span></p>${ul(p.frustrations)}
-      <p><span class="field-key">Behaviors:</span></p>${ul(p.behaviors)}
-    </div>
-  `).join(''))
-
-  // User Journeys
-  const journeysHtml = section('user-journeys', 'User Journeys', userJourneys.journeys.map((j) => `
-    <div class="sub-card">
-      <h4>${esc(j.personaName)} — ${esc(j.scenario)}</h4>
-      <table>
-        <thead><tr><th>Stage</th><th>Action</th><th>Emotion</th><th>Pain Point</th><th>Opportunity</th></tr></thead>
-        <tbody>${j.stages.map((s) => `<tr>
-          <td>${esc(s.stage)}</td>
-          <td>${esc(s.action)}</td>
-          <td>${esc(label(s.emotion))}</td>
-          <td>${s.painPoint ? esc(s.painPoint) : '—'}</td>
-          <td>${s.opportunity ? esc(s.opportunity) : '—'}</td>
-        </tr>`).join('')}</tbody>
-      </table>
-      ${field('Key Insight', j.keyInsight)}
-    </div>
-  `).join(''))
-
-  // MVP Scope
-  const priorities = ['must_have', 'should_have', 'nice_to_have', 'wont_have'] as const
-  const scopeHtml = priorities.map((p) => {
-    const items = mvpScope.scope.filter((s) => s.priority === p)
-    if (!items.length) return ''
-    return `<p><span class="field-key">${label(p)}:</span></p><ul>${items.map((s) => `<li><strong>${esc(s.feature)}</strong> — ${esc(s.rationale)}</li>`).join('')}</ul>`
-  }).join('')
-
-  const mvpHtml = section('mvp-scope', 'MVP Scope', `
-    ${field('Hypothesis', mvpScope.hypothesis)}
-    ${field('Success Criteria', mvpScope.successCriteria)}
-    ${field('Estimated Build Time', mvpScope.estimatedBuildTime)}
-    ${scopeHtml}
-    <p><span class="field-key">Out of Scope:</span></p>${ul(mvpScope.outOfScope)}
-  `)
-
-  // Requirements
-  const reqRows = (reqs: typeof requirements.functional) =>
-    `<table><thead><tr><th>ID</th><th>Category</th><th>Priority</th><th>Description</th><th>Acceptance Criteria</th></tr></thead><tbody>${reqs.map((r) =>
-      `<tr><td>${esc(r.id)}</td><td>${esc(r.category)}</td><td>${esc(label(r.priority))}</td><td>${esc(r.description)}</td><td>${esc(r.acceptanceCriteria)}</td></tr>`
-    ).join('')}</tbody></table>`
-
-  const requirementsHtml = section('requirements', 'Requirements', `
-    <h3>Functional</h3>${reqRows(requirements.functional)}
-    <h3>Non-Functional</h3>${reqRows(requirements.nonFunctional)}
-  `)
-
-  // Roadmap
-  const roadmapHtml = section('roadmap', 'Roadmap', `
-    ${field('Total Timeline', roadmap.totalEstimatedTimeline)}
-    ${field('Critical Path', roadmap.criticalPath)}
-    ${roadmap.milestones.map((m) => `
-      <div class="sub-card">
-        <h4>Phase ${m.phase}: ${esc(m.name)}</h4>
-        <p>${esc(m.description)}</p>
-        ${field('Duration', m.estimatedDuration)}
-        ${field('Success Metric', m.successMetric)}
-        <p><span class="field-key">Deliverables:</span></p>${ul(m.deliverables)}
-        ${m.dependencies.length ? field('Dependencies', m.dependencies.join(', ')) : ''}
-      </div>
-    `).join('')}
-  `)
-
-  // Risks
-  const risksHtml = section('risks', 'Risks', risks.risks.map((r) => `
-    <div class="sub-card">
-      <h4>${esc(r.title)} <span class="badge badge-${r.severity}">${esc(label(r.severity))}</span></h4>
-      <p><span class="field-key">${esc(label(r.category))}</span></p>
-      <p>${esc(r.description)}</p>
-      ${field('Mitigation', r.mitigation)}
-      ${r.phase != null ? field('Phase', String(r.phase)) : ''}
-    </div>
-  `).join(''))
-
-  // Metrics
-  const { northStar } = metrics
-  const metricsHtml = section('metrics', 'Metrics', `
-    <div class="sub-card">
-      <h4>North Star: ${esc(northStar.name)}</h4>
-      <p>${esc(northStar.description)}</p>
-      ${field('Target', northStar.target)}
-      ${field('Rationale', northStar.rationale)}
-    </div>
-    <h3>Key Metrics</h3>
-    <table>
-      <thead><tr><th>Name</th><th>Category</th><th>Phase</th><th>Description</th><th>Target</th></tr></thead>
-      <tbody>${metrics.metrics.map((m) => `
-        <tr>
-          <td>${esc(m.name)}</td>
-          <td>${esc(label(m.category))}</td>
-          <td>${m.phase}</td>
-          <td>${esc(m.description)}</td>
-          <td>${esc(m.target)}</td>
-        </tr>
-      `).join('')}</tbody>
-    </table>
-  `)
-
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>${esc(filename)}</title>
-  <style>
+export function getBlueprintExportStyles(): string {
+  return `
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -204,7 +44,7 @@ function blueprintToHtml(content: BlueprintContent, filename: string): string {
       color: #111;
       background: #fff;
       padding: 48px 56px;
-      max-width: 900px;
+      max-width: ${EXPORT_WIDTH_PX}px;
       margin: 0 auto;
     }
     header { margin-bottom: 40px; border-bottom: 2px solid #111; padding-bottom: 20px; }
@@ -236,9 +76,16 @@ function blueprintToHtml(content: BlueprintContent, filename: string): string {
       background: #fafafa;
       page-break-inside: avoid;
     }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+      font-size: 11px;
+      table-layout: fixed;
+      word-break: break-word;
+    }
     th { background: #f3f4f6; font-weight: 600; text-align: left; padding: 7px 10px; border: 1px solid #e5e7eb; }
-    td { padding: 6px 10px; border: 1px solid #e5e7eb; vertical-align: top; }
+    td { padding: 6px 10px; border: 1px solid #e5e7eb; vertical-align: top; word-break: break-word; }
     tr:nth-child(even) td { background: #fafafa; }
     .badge {
       display: inline-block;
@@ -261,12 +108,171 @@ function blueprintToHtml(content: BlueprintContent, filename: string): string {
       section { page-break-inside: avoid; }
       .sub-card { page-break-inside: avoid; }
     }
-  </style>
-</head>
-<body>
+  `
+}
+
+export function blueprintToHtmlBody(content: BlueprintContent, options?: ExportBlueprintOptions): string {
+  const { overview, problem, customer, solution, businessModel, personas, userJourneys, mvpScope, requirements, roadmap, risks, metrics } = content
+  const generatedLabel = formatDate(options?.generatedAt)
+
+  const overviewHtml = section('overview', 'Overview', `
+    ${field('Tagline', overview.tagline)}
+    ${field('Position Statement', overview.positionStatement)}
+    ${field('Core Value Proposition', overview.coreValueProposition)}
+    ${field('Target Market', overview.targetMarketSummary)}
+  `)
+
+  const problemHtml = section('problem', 'Problem', `
+    ${field('Statement', problem.statement)}
+    ${field('Severity', label(problem.problemSeverity))}
+    ${field('Why Now', problem.whyNow)}
+    <p><span class="field-key">Pain Points:</span></p>${ul(problem.painPoints)}
+    <p><span class="field-key">Current Alternatives:</span></p>${ul(problem.currentAlternatives)}
+  `)
+
+  const segmentsHtml = customer.segments.map((s) => `
+    <div class="sub-card">
+      <h4>${esc(s.name)}${s.isPrimaryBuyer ? ' <span class="badge">Primary</span>' : ''}</h4>
+      <p>${esc(s.description)}</p>
+      ${field('Estimated Size', s.estimatedSize)}
+      <p><span class="field-key">Characteristics:</span></p>${ul(s.characteristics)}
+    </div>
+  `).join('')
+
+  const customerHtml = section('customer', 'Customer', `
+    <h3>ICP: ${esc(customer.icp.title)}</h3>
+    <p>${esc(customer.icp.description)}</p>
+    ${field('Job to be Done', customer.icp.jobToBeDone)}
+    ${field('Buyer vs User', label(customer.icp.buyerVsUser))}
+    <h3>Segments</h3>
+    ${segmentsHtml}
+  `)
+
+  const solutionHtml = section('solution', 'Solution', `
+    <p>${esc(solution.description)}</p>
+    <p><span class="field-key">Core Capabilities:</span></p>${ul(solution.coreCapabilities)}
+    <p><span class="field-key">Differentiators:</span></p>${ul(solution.differentiators)}
+    ${solution.unfairAdvantage ? field('Unfair Advantage', solution.unfairAdvantage) : ''}
+    ${solution.technologyApproach ? field('Technology Approach', solution.technologyApproach) : ''}
+  `)
+
+  const streamsHtml = `<ul>${businessModel.revenueStreams.map((rs) =>
+    `<li><strong>${esc(label(rs.type))}${rs.isPrimary ? ' (Primary)' : ''}:</strong> ${esc(rs.description)} — <em>${esc(rs.pricingHypothesis)}</em></li>`
+  ).join('')}</ul>`
+
+  const businessModelHtml = section('business-model', 'Business Model', `
+    ${field('GTM Motion', label(businessModel.gtmMotion))}
+    ${field('Go-to-Market', businessModel.goToMarketSummary)}
+    ${field('Unit Economics', businessModel.unitEconomicsHypothesis)}
+    <p><span class="field-key">Revenue Streams:</span></p>${streamsHtml}
+    <p><span class="field-key">Key Channels:</span></p>${ul(businessModel.keyChannels)}
+  `)
+
+  const personasHtml = section('personas', 'Personas', personas.personas.map((p) => `
+    <div class="sub-card">
+      <h4>${esc(p.name)}${p.isPrimary ? ' <span class="badge">Primary</span>' : ''} — ${esc(p.role)}</h4>
+      ${field('Demographics', p.demographics)}
+      ${field('Tech Savviness', label(p.techSavviness))}
+      <p><span class="field-key">Goals:</span></p>${ul(p.goals)}
+      <p><span class="field-key">Frustrations:</span></p>${ul(p.frustrations)}
+      <p><span class="field-key">Behaviors:</span></p>${ul(p.behaviors)}
+    </div>
+  `).join(''))
+
+  const journeysHtml = section('user-journeys', 'User Journeys', userJourneys.journeys.map((j) => `
+    <div class="sub-card">
+      <h4>${esc(j.personaName)} — ${esc(j.scenario)}</h4>
+      <table>
+        <thead><tr><th>Stage</th><th>Action</th><th>Emotion</th><th>Pain Point</th><th>Opportunity</th></tr></thead>
+        <tbody>${j.stages.map((s) => `<tr>
+          <td>${esc(s.stage)}</td>
+          <td>${esc(s.action)}</td>
+          <td>${esc(label(s.emotion))}</td>
+          <td>${s.painPoint ? esc(s.painPoint) : '—'}</td>
+          <td>${s.opportunity ? esc(s.opportunity) : '—'}</td>
+        </tr>`).join('')}</tbody>
+      </table>
+      ${field('Key Insight', j.keyInsight)}
+    </div>
+  `).join(''))
+
+  const priorities = ['must_have', 'should_have', 'nice_to_have', 'wont_have'] as const
+  const scopeHtml = priorities.map((p) => {
+    const items = mvpScope.scope.filter((s) => s.priority === p)
+    if (!items.length) return ''
+    return `<p><span class="field-key">${label(p)}:</span></p><ul>${items.map((s) => `<li><strong>${esc(s.feature)}</strong> — ${esc(s.rationale)}</li>`).join('')}</ul>`
+  }).join('')
+
+  const mvpHtml = section('mvp-scope', 'MVP Scope', `
+    ${field('Hypothesis', mvpScope.hypothesis)}
+    ${field('Success Criteria', mvpScope.successCriteria)}
+    ${field('Estimated Build Time', mvpScope.estimatedBuildTime)}
+    ${scopeHtml}
+    <p><span class="field-key">Out of Scope:</span></p>${ul(mvpScope.outOfScope)}
+  `)
+
+  const reqRows = (reqs: typeof requirements.functional) =>
+    `<table><thead><tr><th>ID</th><th>Category</th><th>Priority</th><th>Description</th><th>Acceptance Criteria</th></tr></thead><tbody>${reqs.map((r) =>
+      `<tr><td>${esc(r.id)}</td><td>${esc(r.category)}</td><td>${esc(label(r.priority))}</td><td>${esc(r.description)}</td><td>${esc(r.acceptanceCriteria)}</td></tr>`
+    ).join('')}</tbody></table>`
+
+  const requirementsHtml = section('requirements', 'Requirements', `
+    <h3>Functional</h3>${reqRows(requirements.functional)}
+    <h3>Non-Functional</h3>${reqRows(requirements.nonFunctional)}
+  `)
+
+  const roadmapHtml = section('roadmap', 'Roadmap', `
+    ${field('Total Timeline', roadmap.totalEstimatedTimeline)}
+    ${field('Critical Path', roadmap.criticalPath)}
+    ${roadmap.milestones.map((m) => `
+      <div class="sub-card">
+        <h4>Phase ${m.phase}: ${esc(m.name)}</h4>
+        <p>${esc(m.description)}</p>
+        ${field('Duration', m.estimatedDuration)}
+        ${field('Success Metric', m.successMetric)}
+        <p><span class="field-key">Deliverables:</span></p>${ul(m.deliverables)}
+        ${m.dependencies.length ? field('Dependencies', m.dependencies.join(', ')) : ''}
+      </div>
+    `).join('')}
+  `)
+
+  const risksHtml = section('risks', 'Risks', risks.risks.map((r) => `
+    <div class="sub-card">
+      <h4>${esc(r.title)} <span class="badge badge-${r.severity}">${esc(label(r.severity))}</span></h4>
+      <p><span class="field-key">${esc(label(r.category))}</span></p>
+      <p>${esc(r.description)}</p>
+      ${field('Mitigation', r.mitigation)}
+      ${r.phase != null ? field('Phase', String(r.phase)) : ''}
+    </div>
+  `).join(''))
+
+  const { northStar } = metrics
+  const metricsHtml = section('metrics', 'Metrics', `
+    <div class="sub-card">
+      <h4>North Star: ${esc(northStar.name)}</h4>
+      <p>${esc(northStar.description)}</p>
+      ${field('Target', northStar.target)}
+      ${field('Rationale', northStar.rationale)}
+    </div>
+    <h3>Key Metrics</h3>
+    <table>
+      <thead><tr><th>Name</th><th>Category</th><th>Phase</th><th>Description</th><th>Target</th></tr></thead>
+      <tbody>${metrics.metrics.map((m) => `
+        <tr>
+          <td>${esc(m.name)}</td>
+          <td>${esc(label(m.category))}</td>
+          <td>${m.phase}</td>
+          <td>${esc(m.description)}</td>
+          <td>${esc(m.target)}</td>
+        </tr>
+      `).join('')}</tbody>
+    </table>
+  `)
+
+  return `
   <header>
     <h1>${esc(overview.tagline)}</h1>
-    <p class="meta">Startup Blueprint &nbsp;·&nbsp; <span class="accent">Xenysis</span> &nbsp;·&nbsp; ${esc(date)}</p>
+    <p class="meta">Startup Blueprint &nbsp;·&nbsp; <span class="accent">Xenysis</span> &nbsp;·&nbsp; Generated ${esc(generatedLabel)}</p>
   </header>
   ${overviewHtml}
   ${problemHtml}
@@ -280,47 +286,165 @@ function blueprintToHtml(content: BlueprintContent, filename: string): string {
   ${roadmapHtml}
   ${risksHtml}
   ${metricsHtml}
+  `
+}
+
+export function blueprintToHtmlDocument(
+  content: BlueprintContent,
+  filename: string,
+  options?: ExportBlueprintOptions,
+): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${esc(filename)}</title>
+  <style>${getBlueprintExportStyles()}</style>
+</head>
+<body>
+  ${blueprintToHtmlBody(content, options)}
 </body>
 </html>`
 }
 
-export async function exportBlueprintAsPdf(content: BlueprintContent, slug: string): Promise<void> {
+async function renderExportIframe(html: string): Promise<{ iframe: HTMLIFrameElement; doc: Document }> {
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = `position:fixed;left:-9999px;top:0;width:${EXPORT_WIDTH_PX}px;height:0;border:0;visibility:hidden;`
+  document.body.appendChild(iframe)
+
+  await new Promise<void>((resolve, reject) => {
+    iframe.onload = () => resolve()
+    iframe.onerror = () => reject(new Error('Failed to render blueprint for export'))
+    const doc = iframe.contentDocument
+    if (!doc) {
+      reject(new Error('Failed to access export frame'))
+      return
+    }
+    doc.open()
+    doc.write(html)
+    doc.close()
+  })
+
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+  })
+
+  const doc = iframe.contentDocument
+  if (!doc) throw new Error('Failed to access export frame')
+
+  return { iframe, doc }
+}
+
+function addPageFooters(pdf: InstanceType<typeof import('jspdf').default>, dateLabel: string): void {
+  const total = pdf.getNumberOfPages()
+  const pageW = pdf.internal.pageSize.getWidth()
+  const pageH = pdf.internal.pageSize.getHeight()
+
+  for (let i = 1; i <= total; i++) {
+    pdf.setPage(i)
+    pdf.setFontSize(9)
+    pdf.setTextColor(120, 120, 120)
+    pdf.text(`Xenysis · ${dateLabel} · Page ${i} of ${total}`, pageW / 2, pageH - 12, { align: 'center' })
+  }
+}
+
+function addImageSlice(
+  pdf: InstanceType<typeof import('jspdf').default>,
+  imgData: string,
+  imgW: number,
+  imgH: number,
+  y: number,
+): void {
+  pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH)
+}
+
+function placeBlockOnPdf(
+  pdf: InstanceType<typeof import('jspdf').default>,
+  imgData: string,
+  imgW: number,
+  imgH: number,
+  pageW: number,
+  contentHeight: number,
+  state: { cursorY: number },
+): void {
+  let remaining = imgH
+  let offset = 0
+
+  while (remaining > 0) {
+    const available = contentHeight - state.cursorY
+    if (available <= 0) {
+      pdf.addPage()
+      state.cursorY = 0
+      continue
+    }
+
+    const sliceHeight = Math.min(remaining, available)
+    const yPosition = state.cursorY - offset
+
+    addImageSlice(pdf, imgData, imgW, imgH, yPosition)
+
+    offset += sliceHeight
+    remaining -= sliceHeight
+    state.cursorY += sliceHeight
+
+    if (remaining > 0) {
+      pdf.addPage()
+      state.cursorY = 0
+    }
+  }
+
+  if (state.cursorY < contentHeight) {
+    state.cursorY += SECTION_GAP_PX
+  }
+}
+
+export async function exportBlueprintAsPdf(
+  content: BlueprintContent,
+  slug: string,
+  options?: ExportBlueprintOptions,
+): Promise<void> {
   const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
     import('jspdf'),
     import('html2canvas'),
   ])
 
-  const html = blueprintToHtml(content, slug)
-
-  const container = document.createElement('div')
-  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:900px;background:#fff;'
-  container.innerHTML = html
-  document.body.appendChild(container)
+  const html = blueprintToHtmlDocument(content, slug, options)
+  const dateLabel = formatDate(options?.generatedAt)
+  const { iframe, doc } = await renderExportIframe(html)
 
   try {
-    const canvas = await html2canvas(container, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      windowWidth: 900,
-    })
+    const blocks = Array.from(doc.body.querySelectorAll('header, section'))
+    if (!blocks.length) throw new Error('No blueprint content to export')
 
-    const imgData = canvas.toDataURL('image/jpeg', 0.92)
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
-
     const pageW = pdf.internal.pageSize.getWidth()
     const pageH = pdf.internal.pageSize.getHeight()
-    const imgW = pageW
-    const imgH = (canvas.height * imgW) / canvas.width
-    const totalPages = Math.ceil(imgH / pageH)
+    const contentHeight = pageH - FOOTER_RESERVED_PX
+    const state = { cursorY: 0 }
 
-    for (let i = 0; i < totalPages; i++) {
-      if (i > 0) pdf.addPage()
-      pdf.addImage(imgData, 'JPEG', 0, -i * pageH, imgW, imgH)
+    for (const block of blocks) {
+      const canvas = await html2canvas(block as HTMLElement, {
+        scale: CANVAS_SCALE,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        windowWidth: EXPORT_WIDTH_PX,
+      })
+
+      const imgData = canvas.toDataURL('image/png')
+      const imgW = pageW
+      const imgH = (canvas.height * imgW) / canvas.width
+
+      if (state.cursorY > 0 && state.cursorY + imgH > contentHeight) {
+        pdf.addPage()
+        state.cursorY = 0
+      }
+
+      placeBlockOnPdf(pdf, imgData, imgW, imgH, pageW, contentHeight, state)
     }
 
+    addPageFooters(pdf, dateLabel)
     pdf.save(`${slug}.pdf`)
   } finally {
-    document.body.removeChild(container)
+    document.body.removeChild(iframe)
   }
 }
