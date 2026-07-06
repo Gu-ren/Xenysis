@@ -1,7 +1,8 @@
 // Typed API client. Calls NEXT_PUBLIC_API_URL (Railway) when set.
-// All requests include the Supabase access token as an Authorization: Bearer header.
+// All requests include the JWT access token as an Authorization: Bearer header.
 
-import { supabase } from '@/services/auth/client'
+import { getAccessTokenForRequest, refreshSession } from '@/services/auth'
+import { getAuthHeader } from '@/services/auth/storage'
 
 export const hasBackend = Boolean(process.env.NEXT_PUBLIC_API_URL)
 
@@ -21,16 +22,10 @@ export class ApiError extends Error {
 
 async function baseHeaders(): Promise<Record<string, string>> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`
-    }
-  } catch {
-    // No active session — request proceeds without auth header
+  const auth = getAuthHeader()
+  if (auth) {
+    headers['Authorization'] = auth
   }
-
   return headers
 }
 
@@ -39,11 +34,30 @@ async function handleResponse<T>(res: Response, method: string, path: string): P
   return res.json() as Promise<T>
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
+async function fetchWithAuth(
+  path: string,
+  init: RequestInit,
+  method: string,
+  retried = false,
+): Promise<Response> {
   const res = await fetch(`${BASE_URL}${path}`, {
+    ...init,
     headers: await baseHeaders(),
     cache: 'no-store',
   })
+
+  if (res.status === 401 && !retried) {
+    const session = await refreshSession()
+    if (session) {
+      return fetchWithAuth(path, init, method, true)
+    }
+  }
+
+  return res
+}
+
+export async function apiGet<T>(path: string): Promise<T> {
+  const res = await fetchWithAuth(path, {}, 'GET')
   return handleResponse<T>(res, 'GET', path)
 }
 
@@ -51,12 +65,10 @@ export async function apiPost<TBody, TResponse>(
   path: string,
   body: TBody,
 ): Promise<TResponse> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetchWithAuth(path, {
     method: 'POST',
-    headers: await baseHeaders(),
     body: JSON.stringify(body),
-    cache: 'no-store',
-  })
+  }, 'POST')
   return handleResponse<TResponse>(res, 'POST', path)
 }
 
@@ -64,20 +76,16 @@ export async function apiPatch<TBody, TResponse>(
   path: string,
   body: TBody,
 ): Promise<TResponse> {
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetchWithAuth(path, {
     method: 'PATCH',
-    headers: await baseHeaders(),
     body: JSON.stringify(body),
-    cache: 'no-store',
-  })
+  }, 'PATCH')
   return handleResponse<TResponse>(res, 'PATCH', path)
 }
 
 export async function apiDelete<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method: 'DELETE',
-    headers: await baseHeaders(),
-    cache: 'no-store',
-  })
+  const res = await fetchWithAuth(path, { method: 'DELETE' }, 'DELETE')
   return handleResponse<T>(res, 'DELETE', path)
 }
+
+export { getAccessTokenForRequest }

@@ -7,8 +7,7 @@ import { ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import { AuthInput } from '../../components/auth-input'
 import { GoogleButton } from '../../components/google-button'
-import { supabase } from '@/services/auth/client'
-import { signInWithGoogle } from '@/services/auth'
+import { login, signInWithGoogle } from '@/services/auth'
 
 export function LoginForm() {
   const router = useRouter()
@@ -20,10 +19,9 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setGoogleLoading(true)
-    await signInWithGoogle()
-    setGoogleLoading(false)
+    signInWithGoogle()
   }
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -31,12 +29,12 @@ export function LoginForm() {
     setError(null)
     setLoading(true)
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password })
+    const { error: signInError } = await login(email, password)
 
     if (signInError) {
       const isCredentialError =
-        signInError.message.toLowerCase().includes('invalid login credentials') ||
-        signInError.message.toLowerCase().includes('invalid credentials')
+        signInError.code === 'INVALID_CREDENTIALS' ||
+        signInError.message.toLowerCase().includes('invalid email or password')
       setError(isCredentialError ? 'invalid_credentials' : signInError.message)
       setLoading(false)
       return

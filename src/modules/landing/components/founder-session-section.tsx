@@ -4,9 +4,10 @@ import { useRef } from "react"
 import { motion, useScroll, useSpring } from "framer-motion"
 import { MonoLabel } from "@/components/ui/mono-label"
 import { DialogueLine } from "./dialogue-line"
-import { DIALOGUE } from "../constants"
+import { useJourneyContent } from "../use-journey-content"
 
 export function FounderSessionSection() {
+  const { session } = useJourneyContent()
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -26,32 +27,32 @@ export function FounderSessionSection() {
         <div className="w-full max-w-[1280px] mx-auto px-8 grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
           {/* Left: heading */}
           <div>
-            <MonoLabel className="block mb-8">01 / FOUNDER SESSION</MonoLabel>
+            <MonoLabel className="block mb-8">{session.eyebrow}</MonoLabel>
             <h2
               className="mb-8 font-sans font-medium tracking-[-0.025em] leading-[1.1]"
               style={{ fontSize: "clamp(32px, 4vw, 56px)", color: "#111111" }}
             >
-              Describe the
+              {session.headingLine1}
               <br />
-              <span style={{ color: "#a0a0a0" }}>problem.</span>
+              <span style={{ color: "#a0a0a0" }}>{session.headingLine2}</span>
             </h2>
             <p
               className="font-sans text-base font-normal leading-[1.7] max-w-[360px]"
               style={{ color: "#6B6B6B" }}
             >
-              AI-guided sessions transform raw ideas into validated startup systems — challenging your assumptions before you build.
+              {session.body}
             </p>
           </div>
 
           {/* Right: dialogue */}
           <div className="relative h-[420px] flex flex-col justify-center gap-0">
-            {DIALOGUE.map((line, i) => (
+            {session.dialogue.map((line, i) => (
               <DialogueLine
                 key={line.id}
                 line={line}
                 index={i}
                 smooth={smooth}
-                total={DIALOGUE.length}
+                total={session.dialogue.length}
               />
             ))}
 
@@ -63,7 +64,7 @@ export function FounderSessionSection() {
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: "#44E5A9" }}
               />
-              <MonoLabel className="text-[10px]">SYSTEM MAP GENERATING</MonoLabel>
+              <MonoLabel className="text-[10px]">{session.pulseLabel}</MonoLabel>
             </div>
           </div>
         </div>

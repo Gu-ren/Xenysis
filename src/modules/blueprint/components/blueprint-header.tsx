@@ -1,11 +1,12 @@
-import { Download, ArrowRight } from 'lucide-react'
+import { ArrowRight, Download, Loader2 } from 'lucide-react'
 
 interface BlueprintHeaderProps {
   onOpenWaitlist: () => void
   onExport: () => void
+  isExporting?: boolean
 }
 
-export function BlueprintHeader({ onOpenWaitlist, onExport }: BlueprintHeaderProps) {
+export function BlueprintHeader({ onOpenWaitlist, onExport, isExporting = false }: BlueprintHeaderProps) {
   return (
     <header className="sticky top-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-md border-b border-white/[0.06] px-8 py-4">
       <div className="max-w-[1600px] mx-auto flex items-center justify-between">
@@ -27,10 +28,15 @@ export function BlueprintHeader({ onOpenWaitlist, onExport }: BlueprintHeaderPro
         <div className="flex items-center gap-2">
           <button
             onClick={onExport}
-            className="h-8 px-3.5 text-[13px] font-medium text-zinc-400 border border-white/[0.08] hover:border-white/[0.14] hover:text-zinc-200 rounded-lg transition-all flex items-center gap-1.5"
+            disabled={isExporting}
+            className="h-8 px-3.5 text-[13px] font-medium text-zinc-400 border border-white/[0.08] hover:border-white/[0.14] hover:text-zinc-200 rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-zinc-400 disabled:hover:border-white/[0.08]"
           >
-            <Download className="w-3.5 h-3.5" />
-            Export Blueprint
+            {isExporting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
+            {isExporting ? 'Generating PDF...' : 'Download PDF'}
           </button>
           <button
             onClick={onOpenWaitlist}

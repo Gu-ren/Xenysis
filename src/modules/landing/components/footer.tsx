@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { MonoLabel } from "@/components/ui/mono-label"
 import { FOOTER_SECTIONS } from "../constants"
+import { useJourneyContent } from "../use-journey-content"
 import Image from "next/image";
 
 function XenysisLogoMark({ size = 24 }: { size?: number }) {
@@ -26,6 +27,8 @@ function XenysisLogoMark({ size = 24 }: { size?: number }) {
 }
 
 export function Footer() {
+  const content = useJourneyContent()
+
   return (
     <footer
       className="border-t"
@@ -61,7 +64,7 @@ export function Footer() {
               className="font-sans text-sm leading-relaxed max-w-[240px]"
               style={{ color: "rgba(255,255,255,0.35)" }}
             >
-              Your AI technical cofounder. From idea to deployed product.
+              {content.footerTagline}
             </p>
             <p
               className="font-sans text-xs leading-relaxed max-w-[240px]"
@@ -72,26 +75,36 @@ export function Footer() {
           </div>
 
           {/* Link columns */}
-          {FOOTER_SECTIONS.map((section) => (
+          {FOOTER_SECTIONS.map((section, sectionIndex) => (
             <div key={section.heading} className="flex flex-col gap-4">
               <MonoLabel style={{ color: "rgba(255,255,255,0.25)" }}>{section.heading}</MonoLabel>
               <ul className="flex flex-col gap-3">
-                {section.links.map((link) => {
-                  const isCta = link.label === "Start Founder Session"
-                  return (
-                    <li key={link.label}>
-                      <Link
-                        href={link.href}
-                        className="font-sans text-sm transition-colors duration-200"
-                        style={{ color: isCta ? "#4FFAB0" : "rgba(255,255,255,0.45)" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.color = isCta ? "#44E5A9" : "rgba(255,255,255,0.85)" }}
-                        onMouseLeave={(e) => { e.currentTarget.style.color = isCta ? "#4FFAB0" : "rgba(255,255,255,0.45)" }}
-                      >
-                        {link.label}
-                      </Link>
-                    </li>
-                  )
-                })}
+                {section.links.map((link) => (
+                  <li key={link.label}>
+                    <Link
+                      href={link.href}
+                      className="font-sans text-sm transition-colors duration-200"
+                      style={{ color: "rgba(255,255,255,0.45)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.85)" }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)" }}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                ))}
+                {sectionIndex === 0 && (
+                  <li>
+                    <Link
+                      href={content.footerCtaHref}
+                      className="font-sans text-sm transition-colors duration-200"
+                      style={{ color: "#4FFAB0" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.color = "#44E5A9" }}
+                      onMouseLeave={(e) => { e.currentTarget.style.color = "#4FFAB0" }}
+                    >
+                      {content.footerCtaLabel}
+                    </Link>
+                  </li>
+                )}
               </ul>
             </div>
           ))}

@@ -1,6 +1,9 @@
-import { apiGet, apiPost, hasBackend } from '@/lib/api'
-import { supabase } from '@/services/auth/client'
+import { apiGet, apiPost, getAccessTokenForRequest, hasBackend } from '@/lib/api'
 import { EMPTY_UNDERSTANDING, type FounderUnderstanding } from '../types/understanding'
+import {
+  normalizeAnswerChoices,
+  type AnswerChoice,
+} from '../utils/answer-choices'
 
 export interface ApiSession {
   id: string
@@ -109,15 +112,57 @@ export async function requestAssessment(
   return data.understanding
 }
 
+export async function continueDiscovery(
+  startupId: string,
+  sessionId: string,
+): Promise<FounderUnderstanding> {
+  if (!hasBackend) {
+    return { ...EMPTY_UNDERSTANDING, earlyExitDismissed: true, earlyExitEligible: false }
+  }
+  const { data } = await apiPost<Record<string, never>, { data: { understanding: FounderUnderstanding } }>(
+    `/api/v1/startups/${startupId}/sessions/${sessionId}/continue-discovery`,
+    {},
+  )
+  return data.understanding
+}
+
+export async function generateChoices(
+  startupId: string,
+  sessionId: string,
+  questionText: string,
+): Promise<AnswerChoice[]> {
+  if (!hasBackend) {
+    return normalizeAnswerChoices([
+      {
+        label: 'SMB finance teams',
+        text: 'Our primary buyer is a finance lead at a 20–100 person company still reconciling invoices in spreadsheets. They feel the pain when month-end close takes 5+ days and errors create audit risk.',
+      },
+      {
+        label: 'Enterprise CFOs',
+        text: 'We target CFOs at mid-market firms with multi-entity accounting who need real-time visibility across subsidiaries. The trigger is usually a failed audit or a board mandate to cut close time in half.',
+      },
+      {
+        label: 'Freelance accountants',
+        text: 'Independent bookkeepers managing 10–30 client accounts who spend hours chasing receipts and reconciling bank feeds. They look for a solution when a client outgrows their manual workflow.',
+      },
+    ])
+  }
+  const { data } = await apiPost<{ questionText: string }, { data: { choices: unknown[] } }>(
+    `/api/v1/startups/${startupId}/sessions/${sessionId}/generate-choices`,
+    { questionText },
+  )
+  return normalizeAnswerChoices(data.choices)
+}
+
 // ── SSE chat stream ───────────────────────────────────────────────────────────
 
 export interface ChatStreamEvent {
   type: 'delta' | 'done' | 'error'
-  data: { content?: string; jobId?: string; message?: string }
+  data: { content?: string; jobId?: string; message?: string; choices?: unknown[] }
 }
 
 export type OnChunk = (content: string) => void
-export type OnComplete = (jobId: string) => void
+export type OnComplete = (jobId: string, choices?: AnswerChoice[]) => void
 export type OnError = (message: string, status?: number) => void
 
 export async function streamChatMessage(
@@ -127,21 +172,32 @@ export async function streamChatMessage(
   callbacks: { onChunk: OnChunk; onComplete: OnComplete; onError: OnError },
 ): Promise<void> {
   if (!process.env.NEXT_PUBLIC_API_URL) {
-    // Mock: simulate streaming a response when no backend is configured
-    const words = ['This', 'is', 'a', 'mock', 'AI', 'response', 'to', 'your', 'message.']
+    const mockQuestion =
+      'Who is your primary customer — and what triggers them to look for a solution like yours?'
+    const mockChoices: AnswerChoice[] = [
+      {
+        label: 'SMB finance teams',
+        text: 'Our primary buyer is a finance lead at a 20–100 person company still reconciling invoices in spreadsheets. They feel the pain when month-end close takes 5+ days and errors create audit risk.',
+      },
+      {
+        label: 'Enterprise CFOs',
+        text: 'We target CFOs at mid-market firms with multi-entity accounting who need real-time visibility across subsidiaries. The trigger is usually a failed audit or a board mandate to cut close time in half.',
+      },
+      {
+        label: 'Freelance accountants',
+        text: 'Independent bookkeepers managing 10–30 client accounts who spend hours chasing receipts and reconciling bank feeds. They look for a solution when a client outgrows their manual workflow.',
+      },
+    ]
+    const words = mockQuestion.split(' ')
     for (const word of words) {
-      await new Promise((r) => setTimeout(r, 80))
+      await new Promise((r) => setTimeout(r, 60))
       callbacks.onChunk(word + ' ')
     }
-    callbacks.onComplete('mock-job-id')
+    callbacks.onComplete('mock-job-id', mockChoices)
     return
   }
 
-  let token: string | undefined
-  try {
-    const { data: { session } } = await supabase.auth.getSession()
-    token = session?.access_token
-  } catch { /* no session */ }
+  const token = getAccessTokenForRequest()
 
   const res = await fetch(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/startups/${startupId}/sessions/${sessionId}/messages`,
@@ -179,7 +235,10 @@ export async function streamChatMessage(
         if (event.type === 'delta' && event.data.content) {
           callbacks.onChunk(event.data.content)
         } else if (event.type === 'done' && event.data.jobId) {
-          callbacks.onComplete(event.data.jobId)
+          const choices = event.data.choices?.length
+            ? normalizeAnswerChoices(event.data.choices)
+            : undefined
+          callbacks.onComplete(event.data.jobId, choices)
         } else if (event.type === 'error' && event.data.message) {
           callbacks.onError(event.data.message)
         }

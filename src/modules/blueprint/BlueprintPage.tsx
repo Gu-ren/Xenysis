@@ -99,6 +99,8 @@ export function BlueprintPage() {
   const activeSection = useActiveSection()
   const { user } = useAuth()
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
   const { blueprint, loading, error, refetch } = useBlueprint()
   const startupId = useStartupStore((s) => s.startupId)
 
@@ -108,13 +110,24 @@ export function BlueprintPage() {
   }
 
   const handleExport = async () => {
-    if (!blueprint) return
-    trackEvent('blueprint_exported')
+    if (!blueprint || isExporting) return
+    setExportError(null)
+    setIsExporting(true)
     const slug = (blueprint.content.overview.tagline ?? 'startup-blueprint')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')
-    await exportBlueprintAsPdf(blueprint.content, `${slug}-blueprint`)
+    try {
+      await exportBlueprintAsPdf(blueprint.content, `${slug}-blueprint`, {
+        generatedAt: blueprint.generatedAt,
+      })
+      trackEvent('blueprint_exported')
+    } catch (err) {
+      trackEvent('blueprint_export_failed')
+      setExportError(err instanceof Error ? err.message : 'Failed to generate PDF. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
   }
 
   if (loading) return <BlueprintSkeleton />
@@ -129,7 +142,25 @@ export function BlueprintPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-emerald-500/20 font-sans">
-      <BlueprintHeader onOpenWaitlist={handleOpenWaitlist} onExport={handleExport} />
+      <BlueprintHeader
+        onOpenWaitlist={handleOpenWaitlist}
+        onExport={handleExport}
+        isExporting={isExporting}
+      />
+
+      {exportError && (
+        <div className="bg-red-500/10 border-b border-red-500/20 px-8 py-3">
+          <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4">
+            <p className="text-red-400 text-sm">{exportError}</p>
+            <button
+              onClick={() => setExportError(null)}
+              className="text-red-400/70 hover:text-red-300 text-xs shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-[1600px] mx-auto grid grid-cols-[200px_1fr_220px] gap-8 px-8 py-10">
         <NavSidebar activeSection={activeSection} />

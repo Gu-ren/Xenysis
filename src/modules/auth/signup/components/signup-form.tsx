@@ -1,19 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { AuthInput } from '../../components/auth-input';
-import { GoogleButton } from '../../components/google-button';
-import { supabase } from '@/services/auth/client';
-import { signInWithGoogle } from '@/services/auth';
+import { AuthInput } from '../../components/auth-input'
+import { GoogleButton } from '../../components/google-button'
+import { register, signInWithGoogle } from '@/services/auth'
 
 export function SignupForm() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const intent = searchParams.get('intent') ?? '';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,22 +17,9 @@ export function SignupForm() {
   const [sent, setSent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  // When the user confirms in the other tab, Supabase syncs the session via
-  // localStorage. Pick it up here and auto-advance to founder-session.
-  useEffect(() => {
-    if (!sent) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') {
-        router.push('/founder-session')
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [sent, intent, router]);
-
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setGoogleLoading(true);
-    await signInWithGoogle();
-    setGoogleLoading(false);
+    signInWithGoogle();
   };
 
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
@@ -45,28 +27,20 @@ export function SignupForm() {
     setError(null);
     setLoading(true);
 
-    const redirectTo = `${window.location.origin}/auth/confirm`;
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { emailRedirectTo: redirectTo },
-    });
+    const { error: signUpError } = await register(email, password);
 
     if (signUpError) {
-      setError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    // Supabase returns no error for duplicate emails (prevents enumeration),
-    // but identities will be empty when the account already exists.
-    if (!data.user?.identities?.length) {
-      setError('already_exists');
+      if (signUpError.code === 'CONFLICT') {
+        setError('already_exists');
+      } else {
+        setError(signUpError.message);
+      }
       setLoading(false);
       return;
     }
 
     setSent(true);
+    setLoading(false);
   };
 
   return (

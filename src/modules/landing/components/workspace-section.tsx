@@ -4,8 +4,10 @@ import { useRef } from "react"
 import { motion, useScroll, useSpring, useTransform } from "framer-motion"
 import { MonoLabel } from "@/components/ui/mono-label"
 import { SIDEBAR_MODULES, WORKSPACE_TILES } from "../constants"
+import { useJourneyContent } from "../use-journey-content"
 
 export function WorkspaceSection() {
+  const { workspace } = useJourneyContent()
   const containerRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -26,14 +28,14 @@ export function WorkspaceSection() {
 
         <div className="w-full max-w-[1280px] mx-auto px-8">
           <div className="mb-12">
-            <MonoLabel className="block mb-8">03 / WORKSPACE</MonoLabel>
+            <MonoLabel className="block mb-8">{workspace.eyebrow}</MonoLabel>
             <h2
               className="font-sans font-medium tracking-[-0.025em] leading-[1.1]"
               style={{ fontSize: "clamp(32px, 4vw, 56px)", color: "#111111" }}
             >
-              See how your startup works.
+              {workspace.headingLine1}
               <br />
-              <span style={{ color: "#a0a0a0" }}>Refine systems before you ship.</span>
+              <span style={{ color: "#a0a0a0" }}>{workspace.headingLine2}</span>
             </h2>
           </div>
 
@@ -58,7 +60,7 @@ export function WorkspaceSection() {
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.12)" }} />
                 <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: "rgba(255,255,255,0.12)" }} />
                 <div className="w-px h-3.5 mx-3" style={{ backgroundColor: "rgba(255,255,255,0.12)" }} />
-                <MonoLabel style={{ color: "rgba(255,255,255,0.3)" }}>XENYSIS PROJECT_04</MonoLabel>
+                <MonoLabel style={{ color: "rgba(255,255,255,0.3)" }}>{workspace.badge}</MonoLabel>
               </div>
               <div className="flex gap-2">
                 <button
