@@ -2,26 +2,26 @@ import { apiGet, apiPost, apiPatch, apiDelete, hasBackend } from '@/lib/api'
 import type { Startup, StartupHealth } from '@/types'
 import type { StartupWithHealth } from '../types'
 
-// API response shapes (snake_case from backend)
+// API response shapes (camelCase — Drizzle/Hono returns camelCase field names)
 interface ApiStartup {
   id: string
-  user_id: string
+  userId: string
   name: string
   description: string | null
   category: string | null
-  lifecycle_stage: string
-  created_at: string
-  updated_at: string
-  deleted_at: string | null
+  lifecycleStage: string
+  createdAt: string
+  updatedAt: string
+  deletedAt: string | null
 }
 
 interface ApiStartupHealth {
-  startup_id: string
+  startupId: string
   score: number
-  generation_progress: number
-  deployment_ready: boolean
-  asset_count: number
-  deployment_status: string
+  generationProgress: number
+  deploymentReady: boolean
+  assetCount: number
+  deploymentStatus: string
 }
 
 function mapStartup(s: ApiStartup): Startup {
@@ -29,9 +29,9 @@ function mapStartup(s: ApiStartup): Startup {
     id:             s.id,
     name:           s.name,
     description:    s.description ?? '',
-    ownerId:        s.user_id,
-    createdAt:      s.created_at,
-    lifecycleStage: s.lifecycle_stage as Startup['lifecycleStage'],
+    ownerId:        s.userId,
+    createdAt:      s.createdAt,
+    lifecycleStage: s.lifecycleStage as Startup['lifecycleStage'],
     founderSession: null,
   }
 }
@@ -91,7 +91,7 @@ export async function fetchStartup(id: string): Promise<StartupWithHealth> {
 
   const [startupRes, healthRes] = await Promise.allSettled([
     apiGet<{ data: ApiStartup }>(`/api/v1/startups/${id}`),
-    apiGet<ApiStartupHealth>(`/api/v1/startups/${id}/health`),
+    apiGet<{ data: ApiStartupHealth }>(`/api/v1/startups/${id}/health`),
   ])
 
   if (startupRes.status === 'rejected') throw startupRes.reason
@@ -100,12 +100,12 @@ export async function fetchStartup(id: string): Promise<StartupWithHealth> {
   const health: StartupHealth =
     healthRes.status === 'fulfilled'
       ? {
-          score:              healthRes.value.score,
-          generationProgress: healthRes.value.generation_progress,
-          deploymentReady:    healthRes.value.deployment_ready,
-          assetCount:         healthRes.value.asset_count,
+          score:              healthRes.value.data.score,
+          generationProgress: healthRes.value.data.generationProgress,
+          deploymentReady:    healthRes.value.data.deploymentReady,
+          assetCount:         healthRes.value.data.assetCount,
           workflowsActive:    0,
-          deploymentStatus:   healthRes.value.deployment_status as StartupHealth['deploymentStatus'],
+          deploymentStatus:   healthRes.value.data.deploymentStatus as StartupHealth['deploymentStatus'],
         }
       : DEFAULT_HEALTH
 

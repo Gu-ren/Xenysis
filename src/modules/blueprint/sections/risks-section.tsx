@@ -5,6 +5,7 @@ import type { BlueprintRisks, BlueprintRiskCategory } from '../types/blueprint-a
 
 interface RisksSectionProps {
   risks: BlueprintRisks
+  percentage?: number
 }
 
 const RISK_CATEGORY_COLORS: Record<BlueprintRiskCategory, string> = {
@@ -22,7 +23,7 @@ function formatCategory(cat: string): string {
   return cat.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) + ' Risks'
 }
 
-export function RisksSection({ risks }: RisksSectionProps) {
+export function RisksSection({ risks, percentage }: RisksSectionProps) {
   const grouped = risks.risks.reduce<Record<BlueprintRiskCategory, typeof risks.risks>>(
     (acc, risk) => {
       if (!acc[risk.category]) acc[risk.category] = []
@@ -36,7 +37,7 @@ export function RisksSection({ risks }: RisksSectionProps) {
 
   return (
     <section id="risks">
-      <SectionHeading number="11" title="Risks" />
+      <SectionHeading number="11" title="Risks" percentage={percentage} />
 
       <div className={cn('grid gap-4', categories.length <= 2 ? 'md:grid-cols-2' : 'md:grid-cols-3')}>
         {categories.map(([category, items]) => (

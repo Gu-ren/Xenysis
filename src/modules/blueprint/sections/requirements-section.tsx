@@ -4,6 +4,7 @@ import type { BlueprintRequirements, BlueprintRequirement } from '../types/bluep
 
 interface RequirementsSectionProps {
   requirements: BlueprintRequirements
+  percentage?: number
 }
 
 function groupByCategory(reqs: BlueprintRequirement[]): { category: string; items: string[] }[] {
@@ -15,13 +16,13 @@ function groupByCategory(reqs: BlueprintRequirement[]): { category: string; item
   return Array.from(map.entries()).map(([category, items]) => ({ category, items }))
 }
 
-export function RequirementsSection({ requirements }: RequirementsSectionProps) {
+export function RequirementsSection({ requirements, percentage }: RequirementsSectionProps) {
   const functionalGroups  = groupByCategory(requirements.functional)
   const nonFunctionalItems = requirements.nonFunctional.map((r) => r.description)
 
   return (
     <section id="requirements">
-      <SectionHeading number="09" title="Requirements" />
+      <SectionHeading number="09" title="Requirements" percentage={percentage} />
 
       <div className="border border-white/[0.05] rounded-xl overflow-hidden divide-y divide-white/[0.05]">
         {functionalGroups.map((group, i) => (

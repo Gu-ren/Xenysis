@@ -41,7 +41,7 @@ export function LoginForm() {
     }
 
     setSucceeding(true)
-    router.push('/founder-session')
+    router.push('/dashboard')
   }
 
   return (

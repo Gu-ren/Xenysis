@@ -30,7 +30,7 @@ export function OAuthCallbackPage() {
         return
       }
 
-      router.replace('/founder-session')
+      router.replace('/dashboard')
     }
 
     finish()
