@@ -5,6 +5,7 @@ import type { BlueprintCustomer } from '../types/blueprint-api'
 
 interface CustomerSectionProps {
   customer: BlueprintCustomer
+  percentage?: number
 }
 
 function formatBuyerVsUser(value: string): string {
@@ -13,7 +14,7 @@ function formatBuyerVsUser(value: string): string {
   return 'Both roles present'
 }
 
-export function CustomerSection({ customer }: CustomerSectionProps) {
+export function CustomerSection({ customer, percentage }: CustomerSectionProps) {
   const { icp, segments } = customer
 
   const cards = [
@@ -27,7 +28,7 @@ export function CustomerSection({ customer }: CustomerSectionProps) {
 
   return (
     <section id="customer">
-      <SectionHeading number="03" title="Customer" />
+      <SectionHeading number="03" title="Customer" percentage={percentage} />
 
       <div className="mb-7">
         <FieldLabel>Ideal Customer Profile</FieldLabel>

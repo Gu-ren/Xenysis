@@ -88,4 +88,56 @@ export async function apiDelete<T>(path: string): Promise<T> {
   return handleResponse<T>(res, 'DELETE', path)
 }
 
+// ── SSE streaming POST ────────────────────────────────────────────────────────
+// Sends a POST and calls `onEvent` for each parsed SSE data line.
+// Handles 401 → token refresh → retry (once) same as fetchWithAuth.
+export async function apiPostSSE<TBody>(
+  path: string,
+  body: TBody,
+  onEvent: (event: unknown) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const headers = await baseHeaders()
+  const init: RequestInit = {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers,
+    signal,
+  }
+
+  let res = await fetch(`${BASE_URL}${path}`, { ...init, cache: 'no-store' })
+
+  if (res.status === 401) {
+    const session = await refreshSession()
+    if (session) {
+      const retryHeaders = await baseHeaders()
+      res = await fetch(`${BASE_URL}${path}`, { ...init, headers: retryHeaders, cache: 'no-store' })
+    }
+  }
+
+  if (!res.ok) throw new ApiError(res.status, res.statusText, path, 'POST')
+  if (!res.body) throw new Error('No response body for SSE stream')
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      if (line.startsWith('data: ')) {
+        try {
+          onEvent(JSON.parse(line.slice(6)))
+        } catch {
+          // ignore malformed lines
+        }
+      }
+    }
+  }
+}
+
 export { getAccessTokenForRequest }

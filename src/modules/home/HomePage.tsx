@@ -1,8 +1,10 @@
 "use client"
 
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { motion } from "framer-motion"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/services/auth/use-auth"
 import type { Journey } from "@/modules/landing/types"
 
 interface FloatingCardProps {
@@ -146,6 +148,13 @@ const itemVariants = {
 
 export default function HomePage() {
   const router = useRouter()
+  const { user, loading } = useAuth()
+
+  useEffect(() => {
+    if (!loading && user) {
+      router.replace('/dashboard')
+    }
+  }, [loading, user, router])
 
   const handleSelect = (journey: Exclude<Journey, null>) => {
     router.push(`/${journey}`)

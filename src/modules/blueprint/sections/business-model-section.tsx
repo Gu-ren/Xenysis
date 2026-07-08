@@ -7,18 +7,19 @@ import type { BlueprintBusinessModel } from '../types/blueprint-api'
 
 interface BusinessModelSectionProps {
   businessModel: BlueprintBusinessModel
+  percentage?: number
 }
 
 function formatRevenueType(type: string): string {
   return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export function BusinessModelSection({ businessModel }: BusinessModelSectionProps) {
+export function BusinessModelSection({ businessModel, percentage }: BusinessModelSectionProps) {
   const { revenueStreams, keyChannels, unitEconomicsHypothesis, goToMarketSummary } = businessModel
 
   return (
     <section id="business-model">
-      <SectionHeading number="05" title="Business Model" />
+      <SectionHeading number="05" title="Business Model" percentage={percentage} />
 
       <div className="grid md:grid-cols-[1fr_280px] gap-10">
         <div className="space-y-8">

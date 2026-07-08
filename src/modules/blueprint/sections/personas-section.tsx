@@ -5,6 +5,7 @@ import type { BlueprintPersonas } from '../types/blueprint-api'
 
 interface PersonasSectionProps {
   personas: BlueprintPersonas
+  percentage?: number
 }
 
 function deriveInitials(name: string): string {
@@ -15,10 +16,10 @@ function deriveInitials(name: string): string {
     .join('')
 }
 
-export function PersonasSection({ personas }: PersonasSectionProps) {
+export function PersonasSection({ personas, percentage }: PersonasSectionProps) {
   return (
     <section id="personas">
-      <SectionHeading number="06" title="Personas" />
+      <SectionHeading number="06" title="Personas" percentage={percentage} />
 
       <div className="grid lg:grid-cols-3 gap-4">
         {personas.personas.map((persona) => (

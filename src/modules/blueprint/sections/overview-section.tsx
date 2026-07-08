@@ -8,6 +8,7 @@ interface OverviewSectionProps {
   overview: BlueprintOverview
   customer: BlueprintCustomer
   businessModel: BlueprintBusinessModel
+  percentage?: number
 }
 
 function formatGtmMotion(motion: string): string {
@@ -18,7 +19,7 @@ function formatRevenueType(type: string): string {
   return type.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export function OverviewSection({ overview, customer, businessModel }: OverviewSectionProps) {
+export function OverviewSection({ overview, customer, businessModel, percentage }: OverviewSectionProps) {
   const primaryStream = businessModel.revenueStreams.find((r) => r.isPrimary) ?? businessModel.revenueStreams[0]
 
   const stats = [
@@ -31,7 +32,7 @@ export function OverviewSection({ overview, customer, businessModel }: OverviewS
 
   return (
     <section id="overview">
-      <SectionHeading number="01" title="Overview" />
+      <SectionHeading number="01" title="Overview" percentage={percentage} />
 
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
         {stats.map((stat) => (

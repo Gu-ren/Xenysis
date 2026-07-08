@@ -6,6 +6,7 @@ import type { BlueprintUserJourneys } from '../types/blueprint-api'
 
 interface UserJourneysSectionProps {
   userJourneys: BlueprintUserJourneys
+  percentage?: number
 }
 
 function JourneyStep({
@@ -50,12 +51,12 @@ function JourneyStep({
   )
 }
 
-export function UserJourneysSection({ userJourneys }: UserJourneysSectionProps) {
+export function UserJourneysSection({ userJourneys, percentage }: UserJourneysSectionProps) {
   const { journeys } = userJourneys
 
   return (
     <section id="user-journeys">
-      <SectionHeading number="07" title="User Journeys" />
+      <SectionHeading number="07" title="User Journeys" percentage={percentage} />
 
       <div className={cn('grid gap-10', journeys.length > 1 ? 'md:grid-cols-2' : 'md:grid-cols-2')}>
         {journeys.map((journey) => (

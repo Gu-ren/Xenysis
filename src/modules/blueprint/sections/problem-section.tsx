@@ -4,12 +4,13 @@ import type { BlueprintProblem } from '../types/blueprint-api'
 
 interface ProblemSectionProps {
   problem: BlueprintProblem
+  percentage?: number
 }
 
-export function ProblemSection({ problem }: ProblemSectionProps) {
+export function ProblemSection({ problem, percentage }: ProblemSectionProps) {
   return (
     <section id="problem">
-      <SectionHeading number="02" title="Problem" />
+      <SectionHeading number="02" title="Problem" percentage={percentage} />
 
       <p className="text-[26px] font-light text-white italic leading-snug mb-10">
         &ldquo;{problem.statement}&rdquo;

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { AlertCircle, FileX, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/services/auth/use-auth'
 import { useStartupStore } from '@/store/startup'
 import { BlueprintHeader } from './components/blueprint-header'
 import { NavSidebar } from './components/nav-sidebar'
-import { MetricsSidebar } from './components/metrics-sidebar'
+import { AIChatPanel } from './components/ai-chat-panel'
 import { WaitlistModal } from './components/waitlist-modal'
 import { OverviewSection } from './sections/overview-section'
 import { ProblemSection } from './sections/problem-section'
@@ -22,6 +22,8 @@ import { RisksSection } from './sections/risks-section'
 import { useActiveSection } from './hooks/use-active-section'
 import { useBlueprint } from './hooks/use-blueprint'
 import { exportBlueprintAsPdf } from './utils/export-blueprint'
+import { computeAllSectionScores } from './utils/section-scores'
+import type { BlueprintContent } from './types/blueprint-api'
 
 function trackEvent(event: string): void {
   console.log('[Xenysis Analytics]', event)
@@ -31,7 +33,7 @@ function BlueprintSkeleton() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white font-sans">
       <div className="h-[57px] border-b border-white/[0.06] bg-[#0a0a0a]/90" />
-      <div className="max-w-[1600px] mx-auto grid grid-cols-[200px_1fr_220px] gap-8 px-8 py-10">
+      <div className="max-w-[1600px] mx-auto grid grid-cols-[200px_1fr_360px] gap-8 px-8 py-10">
         <div className="space-y-3">
           {Array.from({ length: 11 }).map((_, i) => (
             <div key={i} className="h-8 rounded-lg bg-white/[0.04] animate-pulse" />
@@ -40,18 +42,16 @@ function BlueprintSkeleton() {
         <div className="space-y-8">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="space-y-4">
+              <div className="h-2 w-full rounded bg-white/[0.04] animate-pulse" />
               <div className="h-6 w-40 rounded bg-white/[0.06] animate-pulse" />
               <div className="h-32 rounded-xl bg-white/[0.04] animate-pulse" />
             </div>
           ))}
         </div>
-        <div className="space-y-5">
-          <div className="h-40 rounded-xl bg-white/[0.04] animate-pulse" />
-          <div className="space-y-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-8 rounded bg-white/[0.04] animate-pulse" />
-            ))}
-          </div>
+        <div className="space-y-3">
+          <div className="h-10 rounded-xl bg-white/[0.04] animate-pulse" />
+          <div className="flex-1 h-[400px] rounded-xl bg-white/[0.02] animate-pulse" />
+          <div className="h-16 rounded-xl bg-white/[0.04] animate-pulse" />
         </div>
       </div>
     </div>
@@ -104,22 +104,45 @@ export function BlueprintPage() {
   const { blueprint, loading, error, refetch } = useBlueprint()
   const startupId = useStartupStore((s) => s.startupId)
 
+  // Live blueprint content — updated optimistically by AI chat patches
+  const [liveContent, setLiveContent] = useState<BlueprintContent | null>(null)
+
+  // Sync liveContent whenever the fetched blueprint changes
+  useEffect(() => {
+    if (blueprint?.content) {
+      setLiveContent(blueprint.content)
+    }
+  }, [blueprint])
+
+  // Patch a single top-level section key from AI chat
+  const handleContentPatch = useCallback((path: string, value: unknown) => {
+    setLiveContent((prev) => {
+      if (!prev) return prev
+      return { ...prev, [path]: value } as BlueprintContent
+    })
+  }, [])
+
+  // Replace full content when AI chat stream completes
+  const handleContentReplace = useCallback((content: BlueprintContent) => {
+    setLiveContent(content)
+  }, [])
+
   const handleOpenWaitlist = () => {
     trackEvent('workspace_cta_clicked')
     setIsWaitlistOpen(true)
   }
 
   const handleExport = async () => {
-    if (!blueprint || isExporting) return
+    if (!liveContent || isExporting) return
     setExportError(null)
     setIsExporting(true)
-    const slug = (blueprint.content.overview.tagline ?? 'startup-blueprint')
+    const slug = (liveContent.overview.tagline ?? 'startup-blueprint')
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '')
     try {
-      await exportBlueprintAsPdf(blueprint.content, `${slug}-blueprint`, {
-        generatedAt: blueprint.generatedAt,
+      await exportBlueprintAsPdf(liveContent, `${slug}-blueprint`, {
+        generatedAt: blueprint?.generatedAt ?? new Date().toISOString(),
       })
       trackEvent('blueprint_exported')
     } catch (err) {
@@ -136,9 +159,9 @@ export function BlueprintPage() {
     return <BlueprintError error={error} onRetry={refetch} />
   }
 
-  if (!blueprint) return <BlueprintEmpty />
+  if (!blueprint || !liveContent) return <BlueprintEmpty />
 
-  const { content } = blueprint
+  const scores = computeAllSectionScores(liveContent)
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white selection:bg-emerald-500/20 font-sans">
@@ -162,28 +185,34 @@ export function BlueprintPage() {
         </div>
       )}
 
-      <div className="max-w-[1600px] mx-auto grid grid-cols-[200px_1fr_220px] gap-8 px-8 py-10">
+      <div className="max-w-[1600px] mx-auto grid grid-cols-[200px_1fr_360px] gap-8 px-8 py-10">
         <NavSidebar activeSection={activeSection} />
 
         <main className="min-w-0 space-y-28">
           <OverviewSection
-            overview={content.overview}
-            customer={content.customer}
-            businessModel={content.businessModel}
+            overview={liveContent.overview}
+            customer={liveContent.customer}
+            businessModel={liveContent.businessModel}
+            percentage={scores['overview']}
           />
-          <ProblemSection problem={content.problem} />
-          <CustomerSection customer={content.customer} />
-          <SolutionSection solution={content.solution} />
-          <BusinessModelSection businessModel={content.businessModel} />
-          <PersonasSection personas={content.personas} />
-          <UserJourneysSection userJourneys={content.userJourneys} />
-          <MvpScopeSection mvpScope={content.mvpScope} />
-          <RequirementsSection requirements={content.requirements} />
-          <RoadmapSection roadmap={content.roadmap} />
-          <RisksSection risks={content.risks} />
+          <ProblemSection problem={liveContent.problem} percentage={scores['problem']} />
+          <CustomerSection customer={liveContent.customer} percentage={scores['customer']} />
+          <SolutionSection solution={liveContent.solution} percentage={scores['solution']} />
+          <BusinessModelSection businessModel={liveContent.businessModel} percentage={scores['business-model']} />
+          <PersonasSection personas={liveContent.personas} percentage={scores['personas']} />
+          <UserJourneysSection userJourneys={liveContent.userJourneys} percentage={scores['user-journeys']} />
+          <MvpScopeSection mvpScope={liveContent.mvpScope} percentage={scores['mvp-scope']} />
+          <RequirementsSection requirements={liveContent.requirements} percentage={scores['requirements']} />
+          <RoadmapSection roadmap={liveContent.roadmap} percentage={scores['roadmap']} />
+          <RisksSection risks={liveContent.risks} percentage={scores['risks']} />
         </main>
 
-        <MetricsSidebar metrics={content.metrics} />
+        <AIChatPanel
+          startupId={startupId ?? blueprint.blueprintId}
+          content={liveContent}
+          onContentPatch={handleContentPatch}
+          onContentReplace={handleContentReplace}
+        />
       </div>
 
       <WaitlistModal
@@ -196,3 +225,4 @@ export function BlueprintPage() {
     </div>
   )
 }
+

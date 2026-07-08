@@ -4,15 +4,16 @@ import type { BlueprintRoadmap } from '../types/blueprint-api'
 
 interface RoadmapSectionProps {
   roadmap: BlueprintRoadmap
+  percentage?: number
 }
 
-export function RoadmapSection({ roadmap }: RoadmapSectionProps) {
+export function RoadmapSection({ roadmap, percentage }: RoadmapSectionProps) {
   const { milestones } = roadmap
   const activeIndex = 0
 
   return (
     <section id="roadmap">
-      <SectionHeading number="10" title="Roadmap" />
+      <SectionHeading number="10" title="Roadmap" percentage={percentage} />
 
       <div className="relative">
         {/* Connector track */}

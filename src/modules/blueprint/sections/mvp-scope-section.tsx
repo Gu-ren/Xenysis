@@ -4,16 +4,17 @@ import type { BlueprintMvpScope } from '../types/blueprint-api'
 
 interface MvpScopeSectionProps {
   mvpScope: BlueprintMvpScope
+  percentage?: number
 }
 
-export function MvpScopeSection({ mvpScope }: MvpScopeSectionProps) {
+export function MvpScopeSection({ mvpScope, percentage }: MvpScopeSectionProps) {
   const included = mvpScope.scope
     .filter((item) => item.priority === 'must_have' || item.priority === 'should_have')
     .map((item) => item.feature)
 
   return (
     <section id="mvp-scope">
-      <SectionHeading number="08" title="MVP Scope" />
+      <SectionHeading number="08" title="MVP Scope" percentage={percentage} />
 
       {mvpScope.hypothesis && (
         <p className="text-sm text-zinc-600 italic mb-6 leading-relaxed">
