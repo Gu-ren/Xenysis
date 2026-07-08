@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AlertCircle, FileX, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/services/auth/use-auth'
 import { useStartupStore } from '@/store/startup'
@@ -24,6 +24,18 @@ import { useBlueprint } from './hooks/use-blueprint'
 import { exportBlueprintAsPdf } from './utils/export-blueprint'
 import { computeAllSectionScores } from './utils/section-scores'
 import type { BlueprintContent } from './types/blueprint-api'
+
+// Maps BlueprintContent top-level keys to the DOM id on each <section> element.
+const SECTION_ID_MAP: Record<string, string> = {
+  businessModel: 'business-model',
+  userJourneys:  'user-journeys',
+  mvpScope:      'mvp-scope',
+  // All other keys match their section id 1-to-1
+}
+
+function getSectionId(path: string): string {
+  return SECTION_ID_MAP[path] ?? path
+}
 
 function trackEvent(event: string): void {
   console.log('[Xenysis Analytics]', event)
@@ -107,6 +119,10 @@ export function BlueprintPage() {
   // Live blueprint content — updated optimistically by AI chat patches
   const [liveContent, setLiveContent] = useState<BlueprintContent | null>(null)
 
+  // Tracks which sections were patched during a streaming session so we can
+  // scroll to the first changed section when the stream completes.
+  const patchedSectionsRef = useRef<string[]>([])
+
   // Sync liveContent whenever the fetched blueprint changes
   useEffect(() => {
     if (blueprint?.content) {
@@ -120,11 +136,27 @@ export function BlueprintPage() {
       if (!prev) return prev
       return { ...prev, [path]: value } as BlueprintContent
     })
+    // Track patched section and flash an emerald glow on it
+    patchedSectionsRef.current.push(path)
+    const el = document.getElementById(getSectionId(path))
+    if (el) {
+      el.classList.remove('ai-highlight')  // reset if already animating
+      // Force reflow so the animation restarts cleanly
+      void el.offsetWidth
+      el.classList.add('ai-highlight')
+      setTimeout(() => el.classList.remove('ai-highlight'), 2100)
+    }
   }, [])
 
-  // Replace full content when AI chat stream completes
+  // Replace full content when AI chat stream completes — scroll to first changed section
   const handleContentReplace = useCallback((content: BlueprintContent) => {
     setLiveContent(content)
+    const firstPath = patchedSectionsRef.current[0]
+    if (firstPath) {
+      document.getElementById(getSectionId(firstPath))
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    patchedSectionsRef.current = []
   }, [])
 
   const handleOpenWaitlist = () => {
