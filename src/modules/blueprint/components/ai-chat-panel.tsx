@@ -30,7 +30,15 @@ function ThinkingDots() {
   )
 }
 
-function MessageBubble({ message }: { message: ChatMessage }) {
+function MessageBubble({
+  message,
+  onChoiceClick,
+  isStreaming,
+}: {
+  message:       ChatMessage
+  onChoiceClick: (choice: string) => void
+  isStreaming:   boolean
+}) {
   const isUser = message.role === 'user'
 
   return (
@@ -55,6 +63,27 @@ function MessageBubble({ message }: { message: ChatMessage }) {
       >
         {message.content || (message.thinking ? <ThinkingDots /> : null)}
         {message.thinking && message.content && <ThinkingDots />}
+
+        {/* Clarify choice chips — only on assistant messages */}
+        {!isUser && message.clarify && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {message.clarify.choices.map((choice) => (
+              <button
+                key={choice}
+                onClick={() => onChoiceClick(choice)}
+                disabled={isStreaming}
+                className={cn(
+                  'text-[11px] px-2.5 py-1.5 rounded-lg border',
+                  'border-emerald-500/25 bg-emerald-500/[0.06] text-emerald-400',
+                  'hover:bg-emerald-500/[0.16] hover:border-emerald-500/40 transition-colors',
+                  'disabled:opacity-40 disabled:cursor-not-allowed',
+                )}
+              >
+                {choice}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   )
@@ -93,6 +122,11 @@ export function AIChatPanel({
     if (!text || isStreaming) return
     setInputValue('')
     await sendMessage(text, content)
+  }
+
+  const handleChoiceClick = async (choice: string) => {
+    if (isStreaming) return
+    await sendMessage(choice, content)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -154,7 +188,12 @@ export function AIChatPanel({
           ) : (
             <AnimatePresence initial={false}>
               {messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
+                <MessageBubble
+                  key={msg.id}
+                  message={msg}
+                  onChoiceClick={handleChoiceClick}
+                  isStreaming={isStreaming}
+                />
               ))}
             </AnimatePresence>
           )}
