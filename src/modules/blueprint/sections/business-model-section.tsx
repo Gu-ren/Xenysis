@@ -52,7 +52,7 @@ export function BusinessModelSection({ businessModel, percentage }: BusinessMode
                 >
                   {formatRevenueType(stream.type)}
                 </p>
-                <p className="text-3xl font-bold text-white mb-1">
+                <p className="text-sm font-medium text-white mb-1 leading-relaxed">
                   {stream.pricingHypothesis}
                 </p>
                 <p className="text-xs text-zinc-500 mt-3 leading-relaxed">{stream.description}</p>

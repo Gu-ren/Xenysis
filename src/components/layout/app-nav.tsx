@@ -7,7 +7,11 @@ import { Plus, LogOut } from 'lucide-react'
 import { useAuth } from '@/services/auth/use-auth'
 import { signOut } from '@/services/auth'
 
-export function AppNav() {
+interface AppNavProps {
+  onNewProject?: () => void
+}
+
+export function AppNav({ onNewProject }: AppNavProps) {
   const { user } = useAuth()
   const router = useRouter()
 
@@ -46,8 +50,8 @@ export function AppNav() {
       {/* Right side */}
       <div className="flex items-center gap-3">
         {/* New Project */}
-        <Link
-          href="/founder-session"
+        <button
+          onClick={() => onNewProject ? onNewProject() : router.push('/founder-session')}
           className="flex items-center gap-1.5 rounded-[6px] px-3 py-1.5 text-[12px] font-medium font-mono transition-colors duration-150"
           style={{
             background: '#4FFAB0',
@@ -62,7 +66,7 @@ export function AppNav() {
         >
           <Plus className="w-3.5 h-3.5" strokeWidth={2.5} />
           New Project
-        </Link>
+        </button>
 
         {/* User email */}
         {user?.email && (

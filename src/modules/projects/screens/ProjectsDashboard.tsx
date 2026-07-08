@@ -1,10 +1,11 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Sparkles } from 'lucide-react'
 import { AppNav } from '@/components/layout/app-nav'
 import { ProjectCard } from '../components/project-card'
+import { NewProjectModal } from '../components/new-project-modal'
 import { useStartups } from '../hooks/use-startups'
 
 // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -102,14 +103,14 @@ const cardVariants = {
 }
 
 export function ProjectsDashboard() {
-  const router = useRouter()
   const { startups, loading, error } = useStartups()
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
 
-  const handleNewProject = () => router.push('/founder-session')
+  const handleNewProject = () => setShowNewProjectModal(true)
 
   return (
     <div className="min-h-screen" style={{ background: '#0A0A0A' }}>
-      <AppNav />
+      <AppNav onNewProject={handleNewProject} />
 
       <main className="max-w-[1200px] mx-auto px-6 py-10">
         {/* Page header */}
@@ -194,6 +195,11 @@ export function ProjectsDashboard() {
           </motion.div>
         )}
       </main>
+
+      <NewProjectModal
+        isOpen={showNewProjectModal}
+        onClose={() => setShowNewProjectModal(false)}
+      />
     </div>
   )
 }
