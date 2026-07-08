@@ -36,6 +36,9 @@ export function useBlueprintChat({
 }: UseBlueprintChatOptions): UseBlueprintChatResult {
   const [messages, setMessages]       = useState<ChatMessage[]>([])
   const [isStreaming, setIsStreaming]  = useState(false)
+  // Ref-based guard: synchronous, never stale unlike the state primitive.
+  // Prevents concurrent sends even when setState hasn't flushed yet.
+  const isStreamingRef                = useRef(false)
   const abortRef                      = useRef<AbortController | null>(null)
 
   const addMessage = useCallback((msg: Omit<ChatMessage, 'id'>) => {
@@ -52,9 +55,13 @@ export function useBlueprintChat({
 
   const sendMessage = useCallback(
     async (text: string, currentContent: BlueprintContent) => {
-      if (isStreaming) return
+      // Use the ref for the guard — synchronous, never stale unlike state.
+      if (isStreamingRef.current) return
 
-      // Abort any prior in-flight request
+      isStreamingRef.current = true
+      setIsStreaming(true)
+
+      // Only abort after the guard passes so we never cancel a legitimate stream.
       abortRef.current?.abort()
       const controller = new AbortController()
       abortRef.current = controller
@@ -65,13 +72,11 @@ export function useBlueprintChat({
       // Add a placeholder assistant message for streaming updates
       const assistantId = addMessage({ role: 'assistant', content: '', thinking: true })
 
-      setIsStreaming(true)
-
       try {
         let thinkingText = 'Thinking…'
 
         await apiPostSSE(
-          `/api/startups/${startupId}/blueprints/chat`,
+          `/api/v1/startups/${startupId}/blueprints/chat`,
           { message: text, currentContent },
           (raw) => {
             const event = raw as ChatEvent
@@ -111,10 +116,13 @@ export function useBlueprintChat({
           })
         }
       } finally {
+        isStreamingRef.current = false
         setIsStreaming(false)
       }
     },
-    [isStreaming, startupId, addMessage, updateMessage, onContentPatch, onContentReplace],
+    // isStreaming intentionally excluded — guard uses the ref, not state.
+    // addMessage/updateMessage are stable (empty deps) so omitted too.
+    [startupId, addMessage, updateMessage, onContentPatch, onContentReplace],
   )
 
   const clearMessages = useCallback(() => setMessages([]), [])
