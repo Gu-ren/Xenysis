@@ -201,10 +201,10 @@ export function ConversationPane() {
           })
         }
       },
-      onError: (_message, status) => {
+      onError: (_message, status, errorCode) => {
         setIsStreaming(false)
         setStreamingInStore(false)
-        if (status === 404) {
+        if (status === 404 || (status === 422 && errorCode === 'BUSINESS_RULE')) {
           reset()
           router.replace('/founder-session?fresh=true')
           return
@@ -221,12 +221,14 @@ export function ConversationPane() {
     })
   }, [pingExchange, reset, router])
 
-  // Trigger initial AI question when session IDs are ready
+  // Trigger initial AI question when session IDs are ready.
+  // Guard with isSessionComplete: if the persisted store has a completed session,
+  // do NOT re-send the opener to an already-finished session (avoids 422 BUSINESS_RULE).
   useEffect(() => {
-    if (!startupId || !sessionId || initializedRef.current) return
+    if (!startupId || !sessionId || initializedRef.current || isSessionComplete) return
     initializedRef.current = true
     doStream('Let\'s begin the founder discovery session.', true)
-  }, [startupId, sessionId, doStream])
+  }, [startupId, sessionId, doStream, isSessionComplete])
 
   const handleChoiceSelect = useCallback((choice: AnswerChoice, messageIndex: number) => {
     if (isStreaming || isSessionComplete) return

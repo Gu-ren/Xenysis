@@ -163,7 +163,7 @@ export interface ChatStreamEvent {
 
 export type OnChunk = (content: string) => void
 export type OnComplete = (jobId: string, choices?: AnswerChoice[]) => void
-export type OnError = (message: string, status?: number) => void
+export type OnError = (message: string, status?: number, errorCode?: string) => void
 
 export async function streamChatMessage(
   startupId: string,
@@ -212,7 +212,19 @@ export async function streamChatMessage(
   )
 
   if (!res.ok || !res.body) {
-    callbacks.onError(`Request failed: ${res.status} ${res.statusText}`, res.status)
+    let errorCode: string | undefined
+    let errorMessage: string | undefined
+    try {
+      const body = await res.clone().json() as Record<string, unknown>
+      const err = (body?.error ?? body) as Record<string, unknown> | undefined
+      errorCode = err?.code as string | undefined
+      errorMessage = err?.message as string | undefined
+    } catch { /* ignore parse errors */ }
+    callbacks.onError(
+      errorMessage ?? `Request failed: ${res.status} ${res.statusText}`,
+      res.status,
+      errorCode,
+    )
     return
   }
 
