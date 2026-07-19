@@ -1,4 +1,4 @@
-import { apiGet, apiPost, getAccessTokenForRequest, hasBackend } from '@/lib/api'
+import { apiGet, apiPost, apiPostSSE, ApiError, hasBackend } from '@/lib/api'
 import { EMPTY_UNDERSTANDING, type FounderUnderstanding } from '../types/understanding'
 import {
   normalizeAnswerChoices,
@@ -7,24 +7,24 @@ import {
 
 export interface ApiSession {
   id: string
-  startup_id: string
-  user_id: string
+  startupId: string
+  userId: string
   idea: string
   status: 'active' | 'completed' | 'abandoned'
-  messages_count: number
-  created_at: string
-  updated_at: string
+  messagesCount: number
+  createdAt: string
+  updatedAt: string
 }
 
 export interface ApiSessionAnswer {
   id: string
-  session_id: string
-  question_id: string
-  question_type: string
+  sessionId: string
+  questionId: string
+  questionType: string
   question: string
   answer: string
-  sequence_order: number
-  created_at: string
+  sequenceOrder: number
+  createdAt: string
 }
 
 export interface CreateSessionParams {
@@ -47,13 +47,13 @@ export async function createSession(
   if (!hasBackend) {
     return {
       id: `mock-session-${Date.now()}`,
-      startup_id: startupId,
-      user_id: 'mock-user',
+      startupId,
+      userId: 'mock-user',
       idea: params.idea,
       status: 'active',
-      messages_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      messagesCount: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }
   }
   const { data } = await apiPost<CreateSessionParams, { data: ApiSession }>(
@@ -93,7 +93,7 @@ export async function fetchUnderstanding(
   const { data } = await apiGet<{ data: FounderUnderstanding }>(
     `/api/v1/startups/${startupId}/sessions/${sessionId}/understanding`,
   )
-  return data
+  return data ?? EMPTY_UNDERSTANDING
 }
 
 // Beta early-exit: founder elects to generate an assessment before natural session completion.
@@ -109,7 +109,7 @@ export async function requestAssessment(
     `/api/v1/startups/${startupId}/sessions/${sessionId}/request-assessment`,
     {},
   )
-  return data.understanding
+  return data?.understanding ?? EMPTY_UNDERSTANDING
 }
 
 export async function continueDiscovery(
@@ -123,7 +123,11 @@ export async function continueDiscovery(
     `/api/v1/startups/${startupId}/sessions/${sessionId}/continue-discovery`,
     {},
   )
-  return data.understanding
+  return data?.understanding ?? {
+    ...EMPTY_UNDERSTANDING,
+    earlyExitDismissed: true,
+    earlyExitEligible: false,
+  }
 }
 
 export async function generateChoices(
@@ -147,11 +151,11 @@ export async function generateChoices(
       },
     ])
   }
-  const { data } = await apiPost<{ questionText: string }, { data: { choices: unknown[] } }>(
+  const { data } = await apiPost<{ questionText: string }, { data: { choices?: unknown[] } }>(
     `/api/v1/startups/${startupId}/sessions/${sessionId}/generate-choices`,
     { questionText },
   )
-  return normalizeAnswerChoices(data.choices)
+  return normalizeAnswerChoices(Array.isArray(data?.choices) ? data.choices : [])
 }
 
 // ── SSE chat stream ───────────────────────────────────────────────────────────
@@ -164,6 +168,16 @@ export interface ChatStreamEvent {
 export type OnChunk = (content: string) => void
 export type OnComplete = (jobId: string, choices?: AnswerChoice[]) => void
 export type OnError = (message: string, status?: number, errorCode?: string) => void
+
+function parseApiErrorBody(body: unknown): { message?: string; code?: string } {
+  if (!body || typeof body !== 'object') return {}
+  const root = body as Record<string, unknown>
+  const err = (root.error ?? root) as Record<string, unknown>
+  return {
+    message: typeof err.message === 'string' ? err.message : undefined,
+    code: typeof err.code === 'string' ? err.code : undefined,
+  }
+}
 
 export async function streamChatMessage(
   startupId: string,
@@ -197,64 +211,39 @@ export async function streamChatMessage(
     return
   }
 
-  const token = getAccessTokenForRequest()
+  const path = `/api/v1/startups/${startupId}/sessions/${sessionId}/messages`
+  let settled = false
 
-  const res = await fetch(
-    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/startups/${startupId}/sessions/${sessionId}/messages`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ message }),
-    },
-  )
+  try {
+    await apiPostSSE<{ message: string }>(path, { message }, (raw) => {
+      const event = raw as ChatStreamEvent
+      if (event.type === 'delta' && event.data?.content) {
+        callbacks.onChunk(event.data.content)
+      } else if (event.type === 'done') {
+        settled = true
+        const choices = Array.isArray(event.data?.choices) && event.data.choices.length > 0
+          ? normalizeAnswerChoices(event.data.choices)
+          : undefined
+        callbacks.onComplete(event.data?.jobId ?? 'unknown-job', choices)
+      } else if (event.type === 'error' && event.data?.message) {
+        settled = true
+        callbacks.onError(event.data.message)
+      }
+    })
 
-  if (!res.ok || !res.body) {
-    let errorCode: string | undefined
-    let errorMessage: string | undefined
-    try {
-      const body = await res.clone().json() as Record<string, unknown>
-      const err = (body?.error ?? body) as Record<string, unknown> | undefined
-      errorCode = err?.code as string | undefined
-      errorMessage = err?.message as string | undefined
-    } catch { /* ignore parse errors */ }
-    callbacks.onError(
-      errorMessage ?? `Request failed: ${res.status} ${res.statusText}`,
-      res.status,
-      errorCode,
-    )
-    return
-  }
-
-  const reader = res.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue
-      try {
-        const event = JSON.parse(line.slice(6)) as ChatStreamEvent
-        if (event.type === 'delta' && event.data.content) {
-          callbacks.onChunk(event.data.content)
-        } else if (event.type === 'done' && event.data.jobId) {
-          const choices = event.data.choices?.length
-            ? normalizeAnswerChoices(event.data.choices)
-            : undefined
-          callbacks.onComplete(event.data.jobId, choices)
-        } else if (event.type === 'error' && event.data.message) {
-          callbacks.onError(event.data.message)
-        }
-      } catch { /* malformed SSE line */ }
+    if (!settled) {
+      callbacks.onError('Stream ended unexpectedly')
     }
+  } catch (err) {
+    if (err instanceof ApiError) {
+      const { message, code } = parseApiErrorBody(err.body)
+      callbacks.onError(
+        message ?? `Request failed: ${err.status} ${err.statusText}`,
+        err.status,
+        code,
+      )
+      return
+    }
+    callbacks.onError(err instanceof Error ? err.message : 'Stream error')
   }
 }

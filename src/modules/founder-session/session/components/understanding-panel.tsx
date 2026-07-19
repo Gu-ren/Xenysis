@@ -7,7 +7,7 @@ import { ArrowRight, Loader2 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useUnderstanding } from '../hooks/use-understanding'
 import { useGenerateReport } from '../hooks/use-generate-report'
-import { FOCUS_LABEL } from '../../types/understanding'
+import { focusLabelFor } from '../../types/understanding'
 import { useFounderSessionStore } from '@/store/founder-session'
 import { requestAssessment } from '../../services/sessions'
 
@@ -344,7 +344,7 @@ export function UnderstandingPanel() {
     : overallConfidence >= 75 ? [79, 250, 176]
     : overallConfidence >= 40 ? [245, 158, 11] : [239, 68, 68]
   const accentColor    = `rgb(${accentRgb[0]},${accentRgb[1]},${accentRgb[2]})`
-  const focusLabel     = weakestCategory ? FOCUS_LABEL[weakestCategory] : null
+  const focusLabel     = weakestCategory ? focusLabelFor(weakestCategory) : null
   const contextText    = isStreaming
     ? 'Connecting ideas and updating the mental model.'
     : !isPreSession && !isComplete

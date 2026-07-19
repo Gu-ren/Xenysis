@@ -14,6 +14,7 @@ export class ApiError extends Error {
     public readonly statusText: string,
     public readonly path: string,
     public readonly method: string,
+    public readonly body?: unknown,
   ) {
     super(`[api] ${method} ${path} → ${status} ${statusText}`)
     this.name = 'ApiError'
@@ -115,12 +116,29 @@ export async function apiPostSSE<TBody>(
     }
   }
 
-  if (!res.ok) throw new ApiError(res.status, res.statusText, path, 'POST')
+  if (!res.ok) {
+    let body: unknown
+    try {
+      body = await res.json()
+    } catch {
+      body = undefined
+    }
+    throw new ApiError(res.status, res.statusText, path, 'POST', body)
+  }
   if (!res.body) throw new Error('No response body for SSE stream')
 
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+
+  const emitLine = (line: string) => {
+    if (!line.startsWith('data: ')) return
+    try {
+      onEvent(JSON.parse(line.slice(6)))
+    } catch {
+      // ignore malformed lines
+    }
+  }
 
   while (true) {
     const { done, value } = await reader.read()
@@ -128,16 +146,11 @@ export async function apiPostSSE<TBody>(
     buffer += decoder.decode(value, { stream: true })
     const lines = buffer.split('\n')
     buffer = lines.pop() ?? ''
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          onEvent(JSON.parse(line.slice(6)))
-        } catch {
-          // ignore malformed lines
-        }
-      }
-    }
+    for (const line of lines) emitLine(line)
   }
+
+  // Flush any trailing SSE payload that lacked a final newline.
+  if (buffer.trim()) emitLine(buffer.trim())
 }
 
 export { getAccessTokenForRequest }
