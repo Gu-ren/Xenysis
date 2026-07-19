@@ -1,5 +1,12 @@
-import { apiGet, hasBackend } from '@/lib/api'
-import type { BlueprintApiResponse, BlueprintContent } from '../types/blueprint-api'
+import { apiGet, apiPost, apiPostSSE, apiPut, hasBackend } from '@/lib/api'
+import type {
+  AnalyzeChangesResult,
+  BlueprintApiResponse,
+  BlueprintContent,
+  BlueprintSaveSource,
+  BlueprintVersionHeader,
+  PresencePeer,
+} from '../types/blueprint-api'
 
 interface ApiBlueprintResponse {
   data: BlueprintApiResponse
@@ -151,7 +158,17 @@ const MOCK_BLUEPRINT: BlueprintApiResponse = {
         { name: 'Monthly Recurring Revenue',  category: 'revenue',     description: 'Total MRR from paid subscriptions',                target: '$10K MRR by M6',  measurementMethod: 'Stripe dashboard',                        phase: 3 },
       ],
     },
+    customSections: [],
+    customBlocks: [],
   } satisfies BlueprintContent,
+}
+
+function withDefaults(content: BlueprintContent): BlueprintContent {
+  return {
+    ...content,
+    customSections: content.customSections ?? [],
+    customBlocks: content.customBlocks ?? [],
+  }
 }
 
 export async function fetchCurrentBlueprint(startupId: string): Promise<BlueprintApiResponse> {
@@ -163,5 +180,129 @@ export async function fetchCurrentBlueprint(startupId: string): Promise<Blueprin
   const { data } = await apiGet<ApiBlueprintResponse>(
     `/api/v1/startups/${startupId}/blueprints/current`,
   )
+  return { ...data, content: withDefaults(data.content) }
+}
+
+export async function saveBlueprint(
+  startupId: string,
+  content: BlueprintContent,
+  source: BlueprintSaveSource = 'manual',
+  expectedVersionNumber?: number,
+  note?: string,
+): Promise<{ versionId: string; versionNumber: number; content: BlueprintContent }> {
+  if (!hasBackend) {
+    return {
+      versionId: crypto.randomUUID(),
+      versionNumber: (expectedVersionNumber ?? 1) + 1,
+      content: withDefaults(content),
+    }
+  }
+  const { data } = await apiPut<
+    {
+      content: BlueprintContent
+      source: BlueprintSaveSource
+      expectedVersionNumber?: number
+      note?: string
+    },
+    { data: { versionId: string; versionNumber: number; content: BlueprintContent } }
+  >(`/api/v1/startups/${startupId}/blueprints/current`, {
+    content: withDefaults(content),
+    source,
+    expectedVersionNumber,
+    note,
+  })
+  return { ...data, content: withDefaults(data.content) }
+}
+
+export async function analyzeBlueprintChanges(
+  startupId: string,
+  previous: BlueprintContent,
+  draft: BlueprintContent,
+): Promise<AnalyzeChangesResult> {
+  if (!hasBackend) {
+    return {
+      summary: 'Mock analysis — connect the API for real suggestions.',
+      rationale: 'Your edits look reasonable.',
+      suggestion: null,
+      previewContent: null,
+    }
+  }
+  const { data } = await apiPost<
+    { previous: BlueprintContent; draft: BlueprintContent },
+    { data: AnalyzeChangesResult }
+  >(`/api/v1/startups/${startupId}/blueprints/analyze-changes`, {
+    previous: withDefaults(previous),
+    draft: withDefaults(draft),
+  })
   return data
+}
+
+export async function listBlueprintVersions(startupId: string): Promise<BlueprintVersionHeader[]> {
+  if (!hasBackend) {
+    return [{
+      versionId: MOCK_BLUEPRINT.versionId,
+      versionNumber: 1,
+      isCurrent: true,
+      source: 'generate',
+      generatedAt: MOCK_BLUEPRINT.generatedAt,
+    }]
+  }
+  const { data } = await apiGet<{ data: BlueprintVersionHeader[] }>(
+    `/api/v1/startups/${startupId}/blueprints`,
+  )
+  return data
+}
+
+export async function fetchBlueprintVersion(
+  startupId: string,
+  versionId: string,
+): Promise<{ versionId: string; versionNumber: number; isCurrent: boolean; content: BlueprintContent; generatedAt: string }> {
+  if (!hasBackend) {
+    return {
+      versionId: MOCK_BLUEPRINT.versionId,
+      versionNumber: 1,
+      isCurrent: true,
+      content: MOCK_BLUEPRINT.content,
+      generatedAt: MOCK_BLUEPRINT.generatedAt,
+    }
+  }
+  const { data } = await apiGet<{
+    data: {
+      versionId: string
+      versionNumber: number
+      isCurrent: boolean
+      content: BlueprintContent
+      generatedAt: string
+    }
+  }>(`/api/v1/startups/${startupId}/blueprints/${versionId}`)
+  return { ...data, content: withDefaults(data.content) }
+}
+
+export async function heartbeatBlueprintPresence(
+  startupId: string,
+  displayName: string,
+  sectionId: string | null,
+): Promise<PresencePeer[]> {
+  if (!hasBackend) return []
+  const { data } = await apiPost<
+    { displayName: string; sectionId: string | null },
+    { data: { peers: PresencePeer[] } }
+  >(`/api/v1/startups/${startupId}/blueprints/presence`, { displayName, sectionId })
+  return data.peers ?? []
+}
+
+export async function regenerateOpportunityFromBlueprint(
+  startupId: string,
+  blueprintContent: BlueprintContent,
+  onEvent: (event: unknown) => void,
+): Promise<void> {
+  if (!hasBackend) {
+    onEvent({ type: 'complete', data: { artifactId: 'mock', versionId: 'mock', artifactType: 'opportunity' } })
+    return
+  }
+  await apiPostSSE(
+    `/api/v1/startups/${startupId}/opportunity/regenerate-from-blueprint`,
+    { blueprintContent: withDefaults(blueprintContent) },
+    onEvent,
+  )
 }

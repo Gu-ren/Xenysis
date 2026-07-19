@@ -175,6 +175,29 @@ export interface BlueprintMetrics {
   metrics: BlueprintMetricItem[]
 }
 
+export interface CustomSection {
+  id: string
+  title: string
+  body: string
+}
+
+export type CustomBlockFieldType = 'string' | 'number' | 'boolean' | 'enum' | 'string_array'
+
+export interface CustomBlockField {
+  key: string
+  label: string
+  type: CustomBlockFieldType
+  required: boolean
+  options?: string[]
+}
+
+export interface CustomBlock {
+  id: string
+  name: string
+  fields: CustomBlockField[]
+  data: Record<string, unknown>
+}
+
 export interface BlueprintContent {
   _schemaVersion: '1.0'
   overview: BlueprintOverview
@@ -189,7 +212,11 @@ export interface BlueprintContent {
   roadmap: BlueprintRoadmap
   risks: BlueprintRisks
   metrics: BlueprintMetrics
+  customSections?: CustomSection[]
+  customBlocks?: CustomBlock[]
 }
+
+export type BlueprintSaveSource = 'manual' | 'ai_apply' | 'restore' | 'generate' | 'chat'
 
 export interface BlueprintApiResponse {
   blueprintId: string
@@ -197,4 +224,27 @@ export interface BlueprintApiResponse {
   versionNumber: number
   content: BlueprintContent
   generatedAt: string
+}
+
+export interface BlueprintVersionHeader {
+  versionId: string
+  versionNumber: number
+  isCurrent: boolean
+  source?: string | null
+  note?: string | null
+  generatedAt: string
+}
+
+export interface AnalyzeChangesResult {
+  summary: string
+  rationale: string
+  suggestion: Partial<BlueprintContent> | null
+  previewContent: BlueprintContent | null
+}
+
+export interface PresencePeer {
+  userId: string
+  displayName: string
+  sectionId: string | null
+  updatedAt: number
 }

@@ -1,11 +1,14 @@
 import { GlassCard } from '../ui/glass-card'
 import { SectionHeading } from '../ui/section-heading'
 import { FieldLabel } from '../ui/field-label'
+import { EditableField, EditableList } from '../ui/editable-field'
 import type { BlueprintPersonas } from '../types/blueprint-api'
 
 interface PersonasSectionProps {
   personas: BlueprintPersonas
   percentage?: number
+  editable?: boolean
+  onChange?: (personas: BlueprintPersonas) => void
 }
 
 function deriveInitials(name: string): string {
@@ -16,7 +19,66 @@ function deriveInitials(name: string): string {
     .join('')
 }
 
-export function PersonasSection({ personas, percentage }: PersonasSectionProps) {
+export function PersonasSection({
+  personas,
+  percentage,
+  editable = false,
+  onChange,
+}: PersonasSectionProps) {
+  if (editable) {
+    return (
+      <section id="personas">
+        <SectionHeading number="06" title="Personas" percentage={percentage} />
+        <div className="space-y-6">
+          {personas.personas.map((persona, i) => (
+            <div key={i} className="space-y-3 p-4 rounded-xl border border-white/[0.06]">
+              <EditableField
+                label="Name"
+                value={persona.name}
+                editable
+                onChange={(name) => {
+                  const next = [...personas.personas]
+                  next[i] = { ...persona, name }
+                  onChange?.({ personas: next })
+                }}
+              />
+              <EditableField
+                label="Role"
+                value={persona.role}
+                editable
+                onChange={(role) => {
+                  const next = [...personas.personas]
+                  next[i] = { ...persona, role }
+                  onChange?.({ personas: next })
+                }}
+              />
+              <EditableList
+                label="Goals"
+                items={persona.goals}
+                editable
+                onChange={(goals) => {
+                  const next = [...personas.personas]
+                  next[i] = { ...persona, goals }
+                  onChange?.({ personas: next })
+                }}
+              />
+              <EditableList
+                label="Frustrations"
+                items={persona.frustrations}
+                editable
+                onChange={(frustrations) => {
+                  const next = [...personas.personas]
+                  next[i] = { ...persona, frustrations }
+                  onChange?.({ personas: next })
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section id="personas">
       <SectionHeading number="06" title="Personas" percentage={percentage} />

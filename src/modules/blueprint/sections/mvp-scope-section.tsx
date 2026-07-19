@@ -1,16 +1,73 @@
 import { CheckCircle2, Plus } from 'lucide-react'
 import { SectionHeading } from '../ui/section-heading'
+import { EditableField, EditableList } from '../ui/editable-field'
 import type { BlueprintMvpScope } from '../types/blueprint-api'
 
 interface MvpScopeSectionProps {
   mvpScope: BlueprintMvpScope
   percentage?: number
+  editable?: boolean
+  onChange?: (mvpScope: BlueprintMvpScope) => void
 }
 
-export function MvpScopeSection({ mvpScope, percentage }: MvpScopeSectionProps) {
+export function MvpScopeSection({
+  mvpScope,
+  percentage,
+  editable = false,
+  onChange,
+}: MvpScopeSectionProps) {
   const included = mvpScope.scope
     .filter((item) => item.priority === 'must_have' || item.priority === 'should_have')
     .map((item) => item.feature)
+
+  if (editable) {
+    return (
+      <section id="mvp-scope">
+        <SectionHeading number="08" title="MVP Scope" percentage={percentage} />
+        <div className="space-y-4">
+          <EditableField
+            label="Hypothesis"
+            value={mvpScope.hypothesis}
+            editable
+            multiline
+            onChange={(hypothesis) => onChange?.({ ...mvpScope, hypothesis })}
+          />
+          <EditableField
+            label="Success criteria"
+            value={mvpScope.successCriteria}
+            editable
+            multiline
+            onChange={(successCriteria) => onChange?.({ ...mvpScope, successCriteria })}
+          />
+          <EditableField
+            label="Estimated build time"
+            value={mvpScope.estimatedBuildTime}
+            editable
+            onChange={(estimatedBuildTime) => onChange?.({ ...mvpScope, estimatedBuildTime })}
+          />
+          <EditableList
+            label="Out of scope"
+            items={mvpScope.outOfScope}
+            editable
+            onChange={(outOfScope) => onChange?.({ ...mvpScope, outOfScope })}
+          />
+          {mvpScope.scope.map((item, i) => (
+            <EditableField
+              key={i}
+              label={`Feature (${item.priority})`}
+              value={item.feature}
+              editable
+              onChange={(feature) => {
+                const scope = [...mvpScope.scope]
+                scope[i] = { ...item, feature }
+                onChange?.({ ...mvpScope, scope })
+              }}
+            />
+          ))}
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section id="mvp-scope">

@@ -84,6 +84,17 @@ export async function apiPatch<TBody, TResponse>(
   return handleResponse<TResponse>(res, 'PATCH', path)
 }
 
+export async function apiPut<TBody, TResponse>(
+  path: string,
+  body: TBody,
+): Promise<TResponse> {
+  const res = await fetchWithAuth(path, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  }, 'PUT')
+  return handleResponse<TResponse>(res, 'PUT', path)
+}
+
 export async function apiDelete<T>(path: string): Promise<T> {
   const res = await fetchWithAuth(path, { method: 'DELETE' }, 'DELETE')
   return handleResponse<T>(res, 'DELETE', path)

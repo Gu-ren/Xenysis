@@ -2,11 +2,14 @@ import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SectionHeading } from '../ui/section-heading'
 import { FieldLabel } from '../ui/field-label'
+import { EditableField } from '../ui/editable-field'
 import type { BlueprintUserJourneys } from '../types/blueprint-api'
 
 interface UserJourneysSectionProps {
   userJourneys: BlueprintUserJourneys
   percentage?: number
+  editable?: boolean
+  onChange?: (userJourneys: BlueprintUserJourneys) => void
 }
 
 function JourneyStep({
@@ -51,8 +54,74 @@ function JourneyStep({
   )
 }
 
-export function UserJourneysSection({ userJourneys, percentage }: UserJourneysSectionProps) {
+export function UserJourneysSection({
+  userJourneys,
+  percentage,
+  editable = false,
+  onChange,
+}: UserJourneysSectionProps) {
   const { journeys } = userJourneys
+
+  if (editable) {
+    return (
+      <section id="user-journeys">
+        <SectionHeading number="07" title="User Journeys" percentage={percentage} />
+        <div className="space-y-6">
+          {journeys.map((journey, ji) => (
+            <div key={ji} className="space-y-3 p-4 rounded-xl border border-white/[0.06]">
+              <EditableField
+                label="Persona"
+                value={journey.personaName}
+                editable
+                onChange={(personaName) => {
+                  const next = [...journeys]
+                  next[ji] = { ...journey, personaName }
+                  onChange?.({ journeys: next })
+                }}
+              />
+              <EditableField
+                label="Scenario"
+                value={journey.scenario}
+                editable
+                multiline
+                onChange={(scenario) => {
+                  const next = [...journeys]
+                  next[ji] = { ...journey, scenario }
+                  onChange?.({ journeys: next })
+                }}
+              />
+              <EditableField
+                label="Key insight"
+                value={journey.keyInsight}
+                editable
+                multiline
+                onChange={(keyInsight) => {
+                  const next = [...journeys]
+                  next[ji] = { ...journey, keyInsight }
+                  onChange?.({ journeys: next })
+                }}
+              />
+              {journey.stages.map((stage, si) => (
+                <EditableField
+                  key={si}
+                  label={`Stage: ${stage.stage}`}
+                  value={stage.action}
+                  editable
+                  onChange={(action) => {
+                    const stages = [...journey.stages]
+                    stages[si] = { ...stage, action }
+                    const next = [...journeys]
+                    next[ji] = { ...journey, stages }
+                    onChange?.({ journeys: next })
+                  }}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section id="user-journeys">
