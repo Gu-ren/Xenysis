@@ -4,6 +4,7 @@ import {
   normalizeAnswerChoices,
   type AnswerChoice,
 } from '../utils/answer-choices'
+import { understandingFingerprint } from '../utils/understanding-fingerprint'
 
 export interface ApiSession {
   id: string
@@ -94,6 +95,44 @@ export async function fetchUnderstanding(
     `/api/v1/startups/${startupId}/sessions/${sessionId}/understanding`,
   )
   return data ?? EMPTY_UNDERSTANDING
+}
+
+export { understandingFingerprint }
+
+/**
+ * Poll until understanding fingerprint changes vs previousFingerprint, or timeout.
+ * On timeout returns the latest fetch so the UI never sticks forever.
+ * Offline/mock: short wait then return EMPTY (or latest) so local dev doesn't hang.
+ */
+export async function waitForUnderstandingUpdate(
+  startupId: string,
+  sessionId: string,
+  previousFingerprint: string,
+  options?: { intervalMs?: number; timeoutMs?: number },
+): Promise<FounderUnderstanding> {
+  const intervalMs = options?.intervalMs ?? 800
+  const timeoutMs = options?.timeoutMs ?? (hasBackend ? 20_000 : 400)
+  const started = Date.now()
+  let latest: FounderUnderstanding = EMPTY_UNDERSTANDING
+
+  while (Date.now() - started < timeoutMs) {
+    try {
+      latest = await fetchUnderstanding(startupId, sessionId)
+      if (understandingFingerprint(latest) !== previousFingerprint) {
+        return latest
+      }
+    } catch {
+      // ignore transient errors and keep polling
+    }
+    await new Promise((r) => setTimeout(r, intervalMs))
+  }
+
+  try {
+    latest = await fetchUnderstanding(startupId, sessionId)
+  } catch {
+    /* keep previous latest */
+  }
+  return latest
 }
 
 // Beta early-exit: founder elects to generate an assessment before natural session completion.
