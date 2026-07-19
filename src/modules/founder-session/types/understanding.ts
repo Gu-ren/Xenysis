@@ -39,6 +39,9 @@ export interface CategoryState {
   saturationCount: number
   lastFocusConfidence: number
   assessmentTier: AssessmentTier
+  // Interview engine / validation latches — optional for older payloads
+  validationPlanningCompleted?: boolean
+  hasExternalContact?: boolean
 }
 
 export interface CategoryWarning {
@@ -46,6 +49,22 @@ export interface CategoryWarning {
   confidence: number
   evidenceStrength: number
   message: string
+}
+
+/** Mirrors API interview-coverage PlannedTopic — UI may ignore. */
+export interface PlannedTopic {
+  category: UnderstandingCategory
+  topicSlot: string
+  depth: 'discover' | 'follow_up' | 'validation_planning' | 'foundation'
+  mustElicit: string
+  reason: string
+}
+
+export interface QuestionHistoryEntry {
+  text: string
+  category: UnderstandingCategory
+  topicSlot: string
+  turn: number
 }
 
 export interface FounderUnderstanding {
@@ -71,6 +90,10 @@ export interface FounderUnderstanding {
   // Beta early-exit: tiered gate — 80% first, 90% after Continue Discovery dismiss.
   earlyExitEligible: boolean
   earlyExitDismissed: boolean
+  // Interview engine (API-owned; optional on FE)
+  interviewCoverage?: unknown
+  questionHistory?: QuestionHistoryEntry[]
+  plannedTopic?: PlannedTopic | null
 }
 
 const EMPTY_CATEGORY: CategoryState = {
@@ -146,4 +169,10 @@ export const FOCUS_LABEL: Record<UnderstandingCategory, string> = {
   risks:       'Risk Assessment',
   founder_fit: 'Founder Fit',
   supply_side: 'Supply Side Discovery',
+}
+
+/** Safe label when weakestCategory is unexpected or maps are incomplete. */
+export function focusLabelFor(category: UnderstandingCategory | null | undefined): string {
+  if (!category) return 'Discovery'
+  return FOCUS_LABEL[category] ?? 'Discovery'
 }

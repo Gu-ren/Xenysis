@@ -11,7 +11,7 @@ import {
   generateChoices,
 } from '@/modules/founder-session/services/sessions'
 import { useUnderstanding } from '@/modules/founder-session/session/hooks/use-understanding'
-import { FOCUS_LABEL, type UnderstandingCategory } from '@/modules/founder-session/types/understanding'
+import { focusLabelFor, type UnderstandingCategory } from '@/modules/founder-session/types/understanding'
 import { AnswerChoices } from '@/modules/founder-session/session/components/answer-choices'
 import type { AnswerChoice } from '@/modules/founder-session/utils/answer-choices'
 
@@ -81,7 +81,7 @@ export function ConversationPane() {
   const [lowEffortBanner, setLowEffortBanner] = useState(false)
 
   const composerPlaceholder = understanding.weakestCategory
-    ? COMPOSER_PLACEHOLDERS[understanding.weakestCategory]
+    ? (COMPOSER_PLACEHOLDERS[understanding.weakestCategory] ?? DEFAULT_PLACEHOLDER)
     : DEFAULT_PLACEHOLDER
 
   const scrollEndRef   = useRef<HTMLDivElement>(null)
@@ -476,7 +476,7 @@ export function ConversationPane() {
         )}
         {!isSessionComplete && !showDiscoveryGate && understanding.weakestCategory && (
           <p className="font-mono text-[10px] text-muted tracking-[0.02em] m-0 mb-2 pl-1">
-            Focus: {FOCUS_LABEL[understanding.weakestCategory]} — specific examples and numbers help Xenysis understand faster.
+            Focus: {focusLabelFor(understanding.weakestCategory)} — specific examples and numbers help Xenysis understand faster.
           </p>
         )}
         <div
