@@ -9,6 +9,9 @@ import {
   streamChatMessage,
   continueDiscovery,
   generateChoices,
+  fetchUnderstanding,
+  waitForUnderstandingUpdate,
+  understandingFingerprint,
 } from '@/modules/founder-session/services/sessions'
 import { useUnderstanding } from '@/modules/founder-session/session/hooks/use-understanding'
 import { focusLabelFor, type UnderstandingCategory } from '@/modules/founder-session/types/understanding'
@@ -73,12 +76,15 @@ export function ConversationPane() {
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isProcessingUnderstanding, setIsProcessingUnderstanding] = useState(false)
   const [isFocused, setIsFocused] = useState(false)
   const [pendingChoice, setPendingChoice] = useState<string | null>(null)
   const [gateDismissedThisCycle, setGateDismissedThisCycle] = useState(false)
   const [choicesUnlocked, setChoicesUnlocked] = useState(false)
   const [isGeneratingChoices, setIsGeneratingChoices] = useState(false)
   const [lowEffortBanner, setLowEffortBanner] = useState(false)
+
+  const chatLocked = isStreaming || isProcessingUnderstanding
 
   const composerPlaceholder = understanding.weakestCategory
     ? (COMPOSER_PLACEHOLDERS[understanding.weakestCategory] ?? DEFAULT_PLACEHOLDER)
@@ -96,7 +102,7 @@ export function ConversationPane() {
     earlyExitEligible &&
     !gateDismissedThisCycle &&
     !isSessionComplete &&
-    !isStreaming
+    !chatLocked
 
   const canShowChoices = !showDiscoveryGate || choicesUnlocked
 
@@ -118,7 +124,7 @@ export function ConversationPane() {
   const handleContinueDiscovery = useCallback(async () => {
     const sid = startupIdRef.current
     const sessId = sessionIdRef.current
-    if (!sid || !sessId || isGeneratingChoices || isStreaming) return
+    if (!sid || !sessId || isGeneratingChoices || chatLocked) return
 
     const lastAiIndex = messages.findLastIndex((m) => m.role === 'ai')
     const lastAi = lastAiIndex >= 0 ? messages[lastAiIndex] : null
@@ -146,7 +152,7 @@ export function ConversationPane() {
     } finally {
       setIsGeneratingChoices(false)
     }
-  }, [messages, isGeneratingChoices, isStreaming, pingExchange])
+  }, [messages, isGeneratingChoices, chatLocked, pingExchange])
 
   useEffect(() => {
     if (!continueDiscoveryPingAt) return
@@ -159,6 +165,16 @@ export function ConversationPane() {
     const sid = startupIdRef.current
     const sessId = sessionIdRef.current
     if (!sid || !sessId) return
+
+    let previousFingerprint = ''
+    if (!isInitial) {
+      try {
+        const before = await fetchUnderstanding(sid, sessId)
+        previousFingerprint = understandingFingerprint(before)
+      } catch {
+        previousFingerprint = ''
+      }
+    }
 
     if (!isInitial) {
       setMessages((prev) => {
@@ -187,22 +203,39 @@ export function ConversationPane() {
         })
       },
       onComplete: (_jobId, choices) => {
-        setIsStreaming(false)
-        setStreamingInStore(false)
-        pingExchange()
-        if (choices && choices.length > 0) {
-          setMessages((prev) => {
-            const updated = [...prev]
-            const last = updated[updated.length - 1]
-            if (last?.role === 'ai') {
-              updated[updated.length - 1] = { ...last, choices }
+        // Keep chat locked until understanding finishes (or timeout).
+        // Choices are attached only after the wait so the user cannot proceed early.
+        void (async () => {
+          if (!isInitial) {
+            setIsProcessingUnderstanding(true)
+            setStreamingInStore(true)
+            setIsStreaming(false)
+            try {
+              await waitForUnderstandingUpdate(sid, sessId, previousFingerprint)
+            } catch {
+              // fail open — unlock below
             }
-            return updated
-          })
-        }
+          } else {
+            setIsStreaming(false)
+          }
+          if (choices && choices.length > 0) {
+            setMessages((prev) => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last?.role === 'ai') {
+                updated[updated.length - 1] = { ...last, choices }
+              }
+              return updated
+            })
+          }
+          setIsProcessingUnderstanding(false)
+          setStreamingInStore(false)
+          pingExchange()
+        })()
       },
       onError: (_message, status, errorCode) => {
         setIsStreaming(false)
+        setIsProcessingUnderstanding(false)
         setStreamingInStore(false)
         if (status === 404 || (status === 422 && errorCode === 'BUSINESS_RULE')) {
           reset()
@@ -231,7 +264,7 @@ export function ConversationPane() {
   }, [startupId, sessionId, doStream, isSessionComplete])
 
   const handleChoiceSelect = useCallback((choice: AnswerChoice, messageIndex: number) => {
-    if (isStreaming || isSessionComplete) return
+    if (chatLocked || isSessionComplete) return
     setInputValue(choice.text)
     setPendingChoice(choice.text)
     setIsTyping(true)
@@ -243,11 +276,11 @@ export function ConversationPane() {
       ),
     )
     textareaRef.current?.focus()
-  }, [isStreaming, isSessionComplete, setIsTyping, textareaRef])
+  }, [chatLocked, isSessionComplete, setIsTyping, textareaRef])
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim()
-    if (!text || isStreaming) return
+    if (!text || chatLocked) return
 
     if (pendingChoice && text === pendingChoice && text.length < 120) {
       setLowEffortBanner(true)
@@ -266,7 +299,7 @@ export function ConversationPane() {
       textareaRef.current.style.overflowY = 'hidden'
     }
     doStream(text)
-  }, [inputValue, isStreaming, doStream, setIsTyping, textareaRef])
+  }, [inputValue, chatLocked, doStream, setIsTyping, textareaRef])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -376,13 +409,13 @@ export function ConversationPane() {
                 msg.choices &&
                 msg.choices.length > 0 &&
                 !msg.choicesDismissed &&
-                !isStreaming &&
+                !chatLocked &&
                 canShowChoices &&
                 i === messages.length - 1 && (
                   <AnswerChoices
                     choices={msg.choices}
                     selectedChoice={msg.selectedChoice ?? pendingChoice}
-                    disabled={isSessionComplete}
+                    disabled={isSessionComplete || chatLocked}
                     onSelect={(choice) => handleChoiceSelect(choice, i)}
                   />
                 )}
@@ -396,7 +429,7 @@ export function ConversationPane() {
       {/* Input area */}
       <div className="px-[14px] pb-[14px] bg-background shrink-0">
         <AnimatePresence>
-          {isStreaming && (
+          {chatLocked && (
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -409,7 +442,9 @@ export function ConversationPane() {
                 style={{ animation: 'fs-pulse-dot 1.5s ease-in-out infinite' }}
               />
               <span className="font-mono text-[10px] text-muted tracking-[0.01em]">
-                Xenysis is thinking…
+                {isProcessingUnderstanding
+                  ? 'Updating understanding…'
+                  : 'Xenysis is thinking…'}
               </span>
             </motion.div>
           )}
@@ -509,7 +544,7 @@ export function ConversationPane() {
                 ? 'Refine your selected answer — add details, context, or corrections…'
                 : composerPlaceholder
             }
-            disabled={isStreaming || isSessionComplete}
+            disabled={chatLocked || isSessionComplete}
             rows={1}
             aria-label="Message composer"
             aria-multiline="true"
@@ -523,22 +558,22 @@ export function ConversationPane() {
           <div className="flex justify-end px-3 pb-3 pt-1">
             <button
               onClick={handleSend}
-              disabled={isStreaming || isSessionComplete || !inputValue.trim()}
+              disabled={chatLocked || isSessionComplete || !inputValue.trim()}
               aria-label="Send message"
               className="w-[28px] h-[28px] flex items-center justify-center rounded-lg transition-all duration-150 disabled:cursor-not-allowed focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1"
               style={{
                 background:
-                  inputValue.trim() && !isStreaming && !isSessionComplete
+                  inputValue.trim() && !chatLocked && !isSessionComplete
                     ? 'rgba(79,250,176,0.12)'
                     : 'transparent',
                 color:
-                  inputValue.trim() && !isStreaming && !isSessionComplete
+                  inputValue.trim() && !chatLocked && !isSessionComplete
                     ? 'var(--primary)'
                     : 'rgba(85,85,85,1)',
                 outlineColor: 'var(--primary)',
               }}
             >
-              {isStreaming ? (
+              {chatLocked ? (
                 <Loader2 style={{ width: 13, height: 13 }} strokeWidth={2} className="animate-spin" />
               ) : (
                 <Send style={{ width: 13, height: 13 }} strokeWidth={2} />
