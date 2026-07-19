@@ -16,22 +16,34 @@ export function MvpScopeSection({
   editable = false,
   onChange,
 }: MvpScopeSectionProps) {
-  const included = mvpScope.scope
-    .filter((item) => item.priority === 'must_have' || item.priority === 'should_have')
-    .map((item) => item.feature)
+  const includedItems = mvpScope.scope.filter(
+    (item) => item.priority === 'must_have' || item.priority === 'should_have',
+  )
 
-  if (editable) {
-    return (
-      <section id="mvp-scope">
-        <SectionHeading number="08" title="MVP Scope" percentage={percentage} />
-        <div className="space-y-4">
+  return (
+    <section id="mvp-scope">
+      <SectionHeading number="08" title="MVP Scope" percentage={percentage} />
+
+      {(mvpScope.hypothesis || editable) && (
+        <div className="mb-6">
           <EditableField
-            label="Hypothesis"
-            value={mvpScope.hypothesis}
-            editable
+            value={
+              editable
+                ? mvpScope.hypothesis
+                : mvpScope.hypothesis
+                  ? `Hypothesis: ${mvpScope.hypothesis}`
+                  : ''
+            }
+            editable={editable}
             multiline
             onChange={(hypothesis) => onChange?.({ ...mvpScope, hypothesis })}
+            valueClassName="text-sm text-zinc-600 italic leading-relaxed whitespace-pre-wrap"
           />
+        </div>
+      )}
+
+      {editable && (
+        <div className="mb-6 space-y-3">
           <EditableField
             label="Success criteria"
             value={mvpScope.successCriteria}
@@ -39,44 +51,7 @@ export function MvpScopeSection({
             multiline
             onChange={(successCriteria) => onChange?.({ ...mvpScope, successCriteria })}
           />
-          <EditableField
-            label="Estimated build time"
-            value={mvpScope.estimatedBuildTime}
-            editable
-            onChange={(estimatedBuildTime) => onChange?.({ ...mvpScope, estimatedBuildTime })}
-          />
-          <EditableList
-            label="Out of scope"
-            items={mvpScope.outOfScope}
-            editable
-            onChange={(outOfScope) => onChange?.({ ...mvpScope, outOfScope })}
-          />
-          {mvpScope.scope.map((item, i) => (
-            <EditableField
-              key={i}
-              label={`Feature (${item.priority})`}
-              value={item.feature}
-              editable
-              onChange={(feature) => {
-                const scope = [...mvpScope.scope]
-                scope[i] = { ...item, feature }
-                onChange?.({ ...mvpScope, scope })
-              }}
-            />
-          ))}
         </div>
-      </section>
-    )
-  }
-
-  return (
-    <section id="mvp-scope">
-      <SectionHeading number="08" title="MVP Scope" percentage={percentage} />
-
-      {mvpScope.hypothesis && (
-        <p className="text-sm text-zinc-600 italic mb-6 leading-relaxed">
-          Hypothesis: {mvpScope.hypothesis}
-        </p>
       )}
 
       <div className="grid md:grid-cols-2 gap-px bg-white/[0.05] rounded-2xl overflow-hidden border border-white/[0.06]">
@@ -85,16 +60,37 @@ export function MvpScopeSection({
             <CheckCircle2 className="w-3.5 h-3.5" />
             Included in MVP
           </h4>
-          <div className="flex flex-wrap gap-2">
-            {included.map((f) => (
-              <span
-                key={f}
-                className="px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] text-[11px] text-emerald-400/90"
-              >
-                {f}
-              </span>
-            ))}
-          </div>
+          {editable ? (
+            <div className="space-y-2">
+              {includedItems.map((item) => {
+                const idx = mvpScope.scope.indexOf(item)
+                return (
+                  <EditableField
+                    key={idx}
+                    value={item.feature}
+                    editable
+                    onChange={(feature) => {
+                      const scope = [...mvpScope.scope]
+                      scope[idx] = { ...item, feature }
+                      onChange?.({ ...mvpScope, scope })
+                    }}
+                    valueClassName="text-[11px] text-emerald-400/90"
+                  />
+                )
+              })}
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {includedItems.map((item) => (
+                <span
+                  key={item.feature}
+                  className="px-3 py-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.05] text-[11px] text-emerald-400/90"
+                >
+                  {item.feature}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="bg-[#0a0a0a] p-8">
@@ -102,23 +98,40 @@ export function MvpScopeSection({
             <Plus className="w-3.5 h-3.5 rotate-45" />
             Not Included Yet
           </h4>
-          <div className="flex flex-wrap gap-2">
-            {mvpScope.outOfScope.map((f) => (
-              <span
-                key={f}
-                className="px-3 py-1.5 rounded-lg border border-white/[0.05] bg-white/[0.02] text-[11px] text-zinc-600"
-              >
-                {f}
-              </span>
-            ))}
-          </div>
+          {editable ? (
+            <EditableList
+              items={mvpScope.outOfScope}
+              editable
+              onChange={(outOfScope) => onChange?.({ ...mvpScope, outOfScope })}
+            />
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {mvpScope.outOfScope.map((f) => (
+                <span
+                  key={f}
+                  className="px-3 py-1.5 rounded-lg border border-white/[0.05] bg-white/[0.02] text-[11px] text-zinc-600"
+                >
+                  {f}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {mvpScope.estimatedBuildTime && (
-        <p className="text-xs text-zinc-700 mt-4 text-center">
-          Estimated build time: {mvpScope.estimatedBuildTime}
-        </p>
+      {(mvpScope.estimatedBuildTime || editable) && (
+        <div className="mt-4 text-center">
+          <EditableField
+            value={
+              editable
+                ? mvpScope.estimatedBuildTime
+                : `Estimated build time: ${mvpScope.estimatedBuildTime}`
+            }
+            editable={editable}
+            onChange={(estimatedBuildTime) => onChange?.({ ...mvpScope, estimatedBuildTime })}
+            valueClassName="text-xs text-zinc-700"
+          />
+        </div>
       )}
     </section>
   )

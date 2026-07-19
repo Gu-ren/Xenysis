@@ -22,19 +22,14 @@ export function SolutionSection({
     <section id="solution">
       <SectionHeading number="04" title="Solution" percentage={percentage} />
 
-      {editable ? (
-        <EditableField
-          value={solution.description}
-          editable
-          multiline
-          onChange={(description) => patch({ description })}
-          className="mb-10"
-        />
-      ) : (
-        <p className="text-2xl font-bold text-white mb-10 tracking-tight leading-tight">
-          {solution.description}
-        </p>
-      )}
+      <EditableField
+        value={solution.description}
+        editable={editable}
+        multiline
+        onChange={(description) => patch({ description })}
+        className="mb-10"
+        valueClassName="text-2xl font-bold text-white tracking-tight leading-tight whitespace-pre-wrap"
+      />
 
       <div className="grid md:grid-cols-2 gap-10">
         <div className="space-y-6">

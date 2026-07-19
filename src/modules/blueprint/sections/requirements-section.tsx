@@ -10,12 +10,14 @@ interface RequirementsSectionProps {
   onChange?: (requirements: BlueprintRequirements) => void
 }
 
-function groupByCategory(reqs: BlueprintRequirement[]): { category: string; items: string[] }[] {
-  const map = new Map<string, string[]>()
-  for (const req of reqs) {
+function groupByCategory(
+  reqs: BlueprintRequirement[],
+): { category: string; items: { req: BlueprintRequirement; index: number }[] }[] {
+  const map = new Map<string, { req: BlueprintRequirement; index: number }[]>()
+  reqs.forEach((req, index) => {
     const existing = map.get(req.category) ?? []
-    map.set(req.category, [...existing, req.description])
-  }
+    map.set(req.category, [...existing, { req, index }])
+  })
   return Array.from(map.entries()).map(([category, items]) => ({ category, items }))
 }
 
@@ -26,58 +28,69 @@ export function RequirementsSection({
   onChange,
 }: RequirementsSectionProps) {
   const functionalGroups = groupByCategory(requirements.functional)
-  const nonFunctionalItems = requirements.nonFunctional.map((r) => r.description)
 
   if (editable) {
     return (
       <section id="requirements">
         <SectionHeading number="09" title="Requirements" percentage={percentage} />
-        <div className="space-y-3">
-          {requirements.functional.map((req, i) => (
-            <EditableField
-              key={req.id}
-              label={`${req.id} · ${req.category}`}
-              value={req.description}
-              editable
-              multiline
-              onChange={(description) => {
-                const functional = [...requirements.functional]
-                functional[i] = { ...req, description }
-                onChange?.({ ...requirements, functional })
-              }}
-            />
+        <div className="border border-white/[0.05] rounded-xl overflow-hidden divide-y divide-white/[0.05]">
+          {functionalGroups.map((group) => (
+            <div key={group.category} className="px-5 py-4 space-y-3">
+              <p className="text-[13px] font-medium text-white">{group.category}</p>
+              {group.items.map(({ req, index }) => (
+                <EditableField
+                  key={req.id}
+                  label={req.id}
+                  value={req.description}
+                  editable
+                  multiline
+                  onChange={(description) => {
+                    const functional = [...requirements.functional]
+                    functional[index] = { ...req, description }
+                    onChange?.({ ...requirements, functional })
+                  }}
+                />
+              ))}
+            </div>
           ))}
-          {requirements.nonFunctional.map((req, i) => (
-            <EditableField
-              key={req.id}
-              label={`${req.id} · NF`}
-              value={req.description}
-              editable
-              multiline
-              onChange={(description) => {
-                const nonFunctional = [...requirements.nonFunctional]
-                nonFunctional[i] = { ...req, description }
-                onChange?.({ ...requirements, nonFunctional })
-              }}
-            />
-          ))}
+          {requirements.nonFunctional.length > 0 && (
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-[13px] font-medium text-white">Non-Functional</p>
+              {requirements.nonFunctional.map((req, i) => (
+                <EditableField
+                  key={req.id}
+                  label={req.id}
+                  value={req.description}
+                  editable
+                  multiline
+                  onChange={(description) => {
+                    const nonFunctional = [...requirements.nonFunctional]
+                    nonFunctional[i] = { ...req, description }
+                    onChange?.({ ...requirements, nonFunctional })
+                  }}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </section>
     )
   }
+
+  const readGroups = functionalGroups.map((g) => ({
+    category: g.category,
+    items: g.items.map(({ req }) => req.description),
+  }))
+  const nonFunctionalItems = requirements.nonFunctional.map((r) => r.description)
 
   return (
     <section id="requirements">
       <SectionHeading number="09" title="Requirements" percentage={percentage} />
 
       <div className="border border-white/[0.05] rounded-xl overflow-hidden divide-y divide-white/[0.05]">
-        {functionalGroups.map((group, i) => (
+        {readGroups.map((group, i) => (
           <div key={group.category} className="px-5">
-            <AccordionItem
-              title={group.category}
-              items={group.items}
-              defaultOpen={i === 0}
-            />
+            <AccordionItem title={group.category} items={group.items} defaultOpen={i === 0} />
           </div>
         ))}
         {nonFunctionalItems.length > 0 && (

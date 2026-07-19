@@ -38,50 +38,15 @@ export function RisksSection({
     onChange?.({ risks: next })
   }
 
-  if (editable) {
-    return (
-      <section id="risks">
-        <SectionHeading number="11" title="Risks" percentage={percentage} />
-        <div className="space-y-4">
-          {risks.risks.map((risk, i) => (
-            <div key={i} className="p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] space-y-3">
-              <EditableField
-                label="Title"
-                value={risk.title}
-                editable
-                onChange={(title) => updateRisk(i, { title })}
-              />
-              <EditableField
-                label="Description"
-                value={risk.description}
-                editable
-                multiline
-                onChange={(description) => updateRisk(i, { description })}
-              />
-              <EditableField
-                label="Mitigation"
-                value={risk.mitigation}
-                editable
-                multiline
-                onChange={(mitigation) => updateRisk(i, { mitigation })}
-              />
-            </div>
-          ))}
-        </div>
-      </section>
-    )
-  }
+  const grouped = risks.risks.reduce<
+    Record<string, { risk: (typeof risks.risks)[number]; index: number }[]>
+  >((acc, risk, index) => {
+    if (!acc[risk.category]) acc[risk.category] = []
+    acc[risk.category].push({ risk, index })
+    return acc
+  }, {})
 
-  const grouped = risks.risks.reduce<Record<BlueprintRiskCategory, typeof risks.risks>>(
-    (acc, risk) => {
-      if (!acc[risk.category]) acc[risk.category] = []
-      acc[risk.category].push(risk)
-      return acc
-    },
-    {} as Record<BlueprintRiskCategory, typeof risks.risks>,
-  )
-
-  const categories = Object.entries(grouped) as [BlueprintRiskCategory, typeof risks.risks][]
+  const categories = Object.entries(grouped)
 
   return (
     <section id="risks">
@@ -91,17 +56,35 @@ export function RisksSection({
         {categories.map(([category, items]) => (
           <div key={category} className="space-y-3">
             <FieldLabel>{formatCategory(category)}</FieldLabel>
-            {items.map((risk) => (
+            {items.map(({ risk, index }) => (
               <div
-                key={risk.title}
+                key={index}
                 className={cn(
                   'p-4 rounded-xl bg-white/[0.03] border border-white/[0.05] border-l-2 text-xs text-zinc-500 leading-relaxed',
-                  RISK_CATEGORY_COLORS[category],
+                  RISK_CATEGORY_COLORS[category as BlueprintRiskCategory],
                 )}
               >
-                <p className="text-zinc-300 font-medium mb-1">{risk.title}</p>
-                <p className="mb-2">{risk.description}</p>
-                <p className="text-zinc-600 italic">Mitigation: {risk.mitigation}</p>
+                <EditableField
+                  value={risk.title}
+                  editable={editable}
+                  onChange={(title) => updateRisk(index, { title })}
+                  valueClassName="text-zinc-300 font-medium mb-1 text-xs"
+                />
+                <EditableField
+                  value={risk.description}
+                  editable={editable}
+                  multiline
+                  onChange={(description) => updateRisk(index, { description })}
+                  className="mb-2"
+                  valueClassName="text-xs text-zinc-500 leading-relaxed whitespace-pre-wrap"
+                />
+                <EditableField
+                  value={risk.mitigation}
+                  editable={editable}
+                  multiline
+                  onChange={(mitigation) => updateRisk(index, { mitigation })}
+                  valueClassName="text-zinc-600 italic text-xs whitespace-pre-wrap"
+                />
               </div>
             ))}
           </div>
