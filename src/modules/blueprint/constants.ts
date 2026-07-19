@@ -12,4 +12,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'requirements',   label: 'Requirements' },
   { id: 'roadmap',        label: 'Roadmap' },
   { id: 'risks',          label: 'Risks' },
+  { id: 'custom-sections', label: 'Custom' },
+  { id: 'custom-blocks',  label: 'Structured' },
 ]

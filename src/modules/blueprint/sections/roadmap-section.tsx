@@ -1,15 +1,73 @@
 import { cn } from '@/lib/utils'
 import { SectionHeading } from '../ui/section-heading'
+import { EditableField } from '../ui/editable-field'
 import type { BlueprintRoadmap } from '../types/blueprint-api'
 
 interface RoadmapSectionProps {
   roadmap: BlueprintRoadmap
   percentage?: number
+  editable?: boolean
+  onChange?: (roadmap: BlueprintRoadmap) => void
 }
 
-export function RoadmapSection({ roadmap, percentage }: RoadmapSectionProps) {
+export function RoadmapSection({
+  roadmap,
+  percentage,
+  editable = false,
+  onChange,
+}: RoadmapSectionProps) {
   const { milestones } = roadmap
   const activeIndex = 0
+
+  if (editable) {
+    return (
+      <section id="roadmap">
+        <SectionHeading number="10" title="Roadmap" percentage={percentage} />
+        <div className="space-y-4">
+          <EditableField
+            label="Total timeline"
+            value={roadmap.totalEstimatedTimeline}
+            editable
+            onChange={(totalEstimatedTimeline) =>
+              onChange?.({ ...roadmap, totalEstimatedTimeline })
+            }
+          />
+          <EditableField
+            label="Critical path"
+            value={roadmap.criticalPath}
+            editable
+            multiline
+            onChange={(criticalPath) => onChange?.({ ...roadmap, criticalPath })}
+          />
+          {milestones.map((m, i) => (
+            <div key={i} className="space-y-2 p-3 rounded-xl border border-white/[0.06]">
+              <EditableField
+                label={`Phase ${m.phase} name`}
+                value={m.name}
+                editable
+                onChange={(name) => {
+                  const next = [...milestones]
+                  next[i] = { ...m, name }
+                  onChange?.({ ...roadmap, milestones: next })
+                }}
+              />
+              <EditableField
+                label="Description"
+                value={m.description}
+                editable
+                multiline
+                onChange={(description) => {
+                  const next = [...milestones]
+                  next[i] = { ...m, description }
+                  onChange?.({ ...roadmap, milestones: next })
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section id="roadmap">

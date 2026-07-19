@@ -327,7 +327,7 @@ function blueprintCoverHtml(content: BlueprintContent, options?: ExportBlueprint
 }
 
 export function blueprintToHtmlBody(content: BlueprintContent, options?: ExportBlueprintOptions): string {
-  const { overview, problem, customer, solution, businessModel, personas, userJourneys, mvpScope, requirements, roadmap, risks, metrics } = content
+  const { overview, problem, customer, solution, businessModel, personas, userJourneys, mvpScope, requirements, roadmap, risks, metrics, customSections = [], customBlocks = [] } = content
   const generatedLabel = formatDate(options?.generatedAt)
 
   const overviewHtml = section('overview', 'Overview', `
@@ -510,6 +510,22 @@ export function blueprintToHtmlBody(content: BlueprintContent, options?: ExportB
   ${roadmapHtml}
   ${risksHtml}
   ${metricsHtml}
+  ${customSections.length ? section('custom-sections', 'Custom Sections', customSections.map((s) => `
+    <div class="sub-card">
+      <h4>${esc(s.title)}</h4>
+      <p>${esc(s.body)}</p>
+    </div>
+  `).join('')) : ''}
+  ${customBlocks.length ? section('custom-blocks', 'Structured Sections', customBlocks.map((b) => `
+    <div class="sub-card">
+      <h4>${esc(b.name)}</h4>
+      ${b.fields.map((f) => {
+        const v = b.data[f.key]
+        const display = Array.isArray(v) ? v.join(', ') : typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v ?? '')
+        return field(f.label, display)
+      }).join('')}
+    </div>
+  `).join('')) : ''}
   `
 }
 
