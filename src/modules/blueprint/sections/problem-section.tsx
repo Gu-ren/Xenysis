@@ -22,19 +22,14 @@ export function ProblemSection({
     <section id="problem">
       <SectionHeading number="02" title="Problem" percentage={percentage} />
 
-      {editable ? (
-        <EditableField
-          value={problem.statement}
-          editable
-          multiline
-          onChange={(statement) => patch({ statement })}
-          className="mb-10"
-        />
-      ) : (
-        <p className="text-[26px] font-light text-white italic leading-snug mb-10">
-          &ldquo;{problem.statement}&rdquo;
-        </p>
-      )}
+      <EditableField
+        value={problem.statement}
+        editable={editable}
+        multiline
+        onChange={(statement) => patch({ statement })}
+        className="mb-10"
+        valueClassName="text-[26px] font-light text-white italic leading-snug whitespace-pre-wrap"
+      />
 
       <div className="grid md:grid-cols-2 gap-10">
         <div className="space-y-5">

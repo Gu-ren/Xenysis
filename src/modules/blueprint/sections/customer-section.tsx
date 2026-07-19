@@ -29,86 +29,88 @@ export function CustomerSection({
     onChange?.({ ...customer, icp: { ...icp, ...partial } })
   }
 
-  const cards = [
-    { label: 'Job to Be Done', value: icp.jobToBeDone },
-    { label: 'Buyer Model', value: formatBuyerVsUser(icp.buyerVsUser) },
-    ...segments.map((seg) => ({
-      label: seg.name,
-      value: `${seg.description} · ${seg.estimatedSize}`,
-    })),
-  ]
-
   return (
     <section id="customer">
       <SectionHeading number="03" title="Customer" percentage={percentage} />
 
-      {editable ? (
-        <div className="space-y-4 mb-7">
+      <div className="mb-7">
+        <FieldLabel>Ideal Customer Profile</FieldLabel>
+        <EditableField
+          value={icp.title}
+          editable={editable}
+          onChange={(title) => patchIcp({ title })}
+          valueClassName="text-xl font-semibold text-white leading-snug"
+        />
+        <EditableField
+          value={icp.description}
+          editable={editable}
+          multiline
+          onChange={(description) => patchIcp({ description })}
+          className="mt-2"
+          valueClassName="text-sm text-zinc-500 leading-relaxed whitespace-pre-wrap"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+        <GlassCard>
           <EditableField
-            label="ICP title"
-            value={icp.title}
-            editable
-            onChange={(title) => patchIcp({ title })}
-          />
-          <EditableField
-            label="ICP description"
-            value={icp.description}
-            editable
-            multiline
-            onChange={(description) => patchIcp({ description })}
-          />
-          <EditableField
-            label="Job to be done"
+            label="Job to Be Done"
             value={icp.jobToBeDone}
-            editable
+            editable={editable}
             multiline
             onChange={(jobToBeDone) => patchIcp({ jobToBeDone })}
+            valueClassName="text-sm text-zinc-300 font-medium leading-relaxed whitespace-pre-wrap"
           />
-          {segments.map((seg, i) => (
-            <div key={i} className="space-y-2 pt-2 border-t border-white/[0.06]">
-              <EditableField
-                label="Segment name"
-                value={seg.name}
-                editable
-                onChange={(name) => {
-                  const next = [...segments]
-                  next[i] = { ...seg, name }
-                  onChange?.({ ...customer, segments: next })
-                }}
-              />
-              <EditableField
-                label="Segment description"
-                value={seg.description}
-                editable
-                multiline
-                onChange={(description) => {
-                  const next = [...segments]
-                  next[i] = { ...seg, description }
-                  onChange?.({ ...customer, segments: next })
-                }}
-              />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <>
-          <div className="mb-7">
-            <FieldLabel>Ideal Customer Profile</FieldLabel>
-            <p className="text-xl font-semibold text-white leading-snug">{icp.title}</p>
-            {icp.description && (
-              <p className="text-sm text-zinc-500 mt-2 leading-relaxed">{icp.description}</p>
+        </GlassCard>
+        <GlassCard>
+          <FieldLabel>Buyer Model</FieldLabel>
+          <p className="text-sm text-zinc-300 font-medium leading-relaxed">
+            {formatBuyerVsUser(icp.buyerVsUser)}
+          </p>
+        </GlassCard>
+        {segments.map((seg, i) => (
+          <GlassCard key={i}>
+            <EditableField
+              label="Segment"
+              value={seg.name}
+              editable={editable}
+              onChange={(name) => {
+                const next = [...segments]
+                next[i] = { ...seg, name }
+                onChange?.({ ...customer, segments: next })
+              }}
+              valueClassName="text-[11px] uppercase tracking-wide text-zinc-500 mb-0 font-normal"
+            />
+            <EditableField
+              value={seg.description}
+              editable={editable}
+              multiline
+              onChange={(description) => {
+                const next = [...segments]
+                next[i] = { ...seg, description }
+                onChange?.({ ...customer, segments: next })
+              }}
+              valueClassName="text-sm text-zinc-300 font-medium leading-relaxed whitespace-pre-wrap"
+            />
+            {!editable && (
+              <p className="text-xs text-zinc-600 mt-1">{seg.estimatedSize}</p>
             )}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            {cards.map((item) => (
-              <GlassCard key={item.label}>
-                <FieldLabel>{item.label}</FieldLabel>
-                <p className="text-sm text-zinc-300 font-medium leading-relaxed">{item.value}</p>
-              </GlassCard>
-            ))}
-          </div>
-        </>
-      )}
+            {editable && (
+              <EditableField
+                value={seg.estimatedSize}
+                editable
+                onChange={(estimatedSize) => {
+                  const next = [...segments]
+                  next[i] = { ...seg, estimatedSize }
+                  onChange?.({ ...customer, segments: next })
+                }}
+                className="mt-1"
+                valueClassName="text-xs text-zinc-600"
+              />
+            )}
+          </GlassCard>
+        ))}
+      </div>
     </section>
   )
 }
