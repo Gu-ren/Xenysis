@@ -8,12 +8,11 @@ import { useFounderSessionStore } from '@/store/founder-session'
 import {
   streamChatMessage,
   continueDiscovery,
-  generateChoices,
-  fetchUnderstanding,
-  waitForUnderstandingUpdate,
-  understandingFingerprint,
+  requestAssessment,
+  type ChatStreamPhase,
 } from '@/modules/founder-session/services/sessions'
 import { useUnderstanding } from '@/modules/founder-session/session/hooks/use-understanding'
+import { useGenerateReport } from '@/modules/founder-session/session/hooks/use-generate-report'
 import { focusLabelFor, type UnderstandingCategory } from '@/modules/founder-session/types/understanding'
 import { AnswerChoices } from '@/modules/founder-session/session/components/answer-choices'
 import type { AnswerChoice } from '@/modules/founder-session/utils/answer-choices'
@@ -65,6 +64,7 @@ export function ConversationPane() {
   const sessionId = useFounderSessionStore((s) => s.sessionId)
   const pingExchange = useFounderSessionStore((s) => s.pingExchange)
   const isSessionComplete = useFounderSessionStore((s) => s.isSessionComplete)
+  const setIsSessionComplete = useFounderSessionStore((s) => s.setIsSessionComplete)
   const setIsTyping = useFounderSessionStore((s) => s.setIsTyping)
   const setStreamingInStore = useFounderSessionStore((s) => s.setIsStreaming)
   const continueDiscoveryPingAt = useFounderSessionStore((s) => s.continueDiscoveryPingAt)
@@ -72,19 +72,34 @@ export function ConversationPane() {
 
   const understanding = useUnderstanding()
   const { earlyExitEligible } = understanding
+  const { stage, stageLabel, generate } = useGenerateReport()
+  const isGeneratingReport = stage === 'generating-oa' || stage === 'generating-blueprint'
 
   const [messages, setMessages] = useState<Message[]>([])
   const [inputValue, setInputValue] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
-  const [isProcessingUnderstanding, setIsProcessingUnderstanding] = useState(false)
+  const [streamPhase, setStreamPhase] = useState<ChatStreamPhase | null>(null)
   const [isFocused, setIsFocused] = useState(false)
   const [pendingChoice, setPendingChoice] = useState<string | null>(null)
   const [gateDismissedThisCycle, setGateDismissedThisCycle] = useState(false)
   const [choicesUnlocked, setChoicesUnlocked] = useState(false)
-  const [isGeneratingChoices, setIsGeneratingChoices] = useState(false)
+  const [isContinuing, setIsContinuing] = useState(false)
+  const [gateError, setGateError] = useState<string | null>(null)
   const [lowEffortBanner, setLowEffortBanner] = useState(false)
 
-  const chatLocked = isStreaming || isProcessingUnderstanding
+  const chatLocked = isStreaming || isContinuing || isGeneratingReport
+  const statusLabel =
+    streamPhase === 'understanding'
+      ? 'Updating understanding…'
+      : streamPhase === 'planning'
+        ? 'Planning next question…'
+        : isStreaming
+          ? 'Xenysis is thinking…'
+          : isContinuing
+            ? 'Continuing discovery…'
+            : isGeneratingReport
+              ? stageLabel
+              : null
 
   const composerPlaceholder = understanding.weakestCategory
     ? (COMPOSER_PLACEHOLDERS[understanding.weakestCategory] ?? DEFAULT_PLACEHOLDER)
@@ -121,60 +136,10 @@ export function ConversationPane() {
     prevEligibleRef.current = earlyExitEligible
   }, [earlyExitEligible])
 
-  const handleContinueDiscovery = useCallback(async () => {
-    const sid = startupIdRef.current
-    const sessId = sessionIdRef.current
-    if (!sid || !sessId || isGeneratingChoices || chatLocked) return
-
-    const lastAiIndex = messages.findLastIndex((m) => m.role === 'ai')
-    const lastAi = lastAiIndex >= 0 ? messages[lastAiIndex] : null
-    if (!lastAi?.content.trim()) return
-
-    setIsGeneratingChoices(true)
-    try {
-      await continueDiscovery(sid, sessId)
-      setGateDismissedThisCycle(true)
-      setChoicesUnlocked(true)
-      pingExchange()
-
-      const choices = await generateChoices(sid, sessId, lastAi.content)
-      if (choices.length > 0) {
-        setMessages((prev) =>
-          prev.map((msg, idx) =>
-            idx === lastAiIndex && msg.role === 'ai'
-              ? { ...msg, choices }
-              : msg,
-          ),
-        )
-      }
-    } catch {
-      // gate stays active on failure
-    } finally {
-      setIsGeneratingChoices(false)
-    }
-  }, [messages, isGeneratingChoices, chatLocked, pingExchange])
-
-  useEffect(() => {
-    if (!continueDiscoveryPingAt) return
-    if (continueDiscoveryPingAt === continueDiscoveryPingRef.current) return
-    continueDiscoveryPingRef.current = continueDiscoveryPingAt
-    void handleContinueDiscovery()
-  }, [continueDiscoveryPingAt, handleContinueDiscovery])
-
   const doStream = useCallback(async (text: string, isInitial = false) => {
     const sid = startupIdRef.current
     const sessId = sessionIdRef.current
     if (!sid || !sessId) return
-
-    let previousFingerprint = ''
-    if (!isInitial) {
-      try {
-        const before = await fetchUnderstanding(sid, sessId)
-        previousFingerprint = understandingFingerprint(before)
-      } catch {
-        previousFingerprint = ''
-      }
-    }
 
     if (!isInitial) {
       setMessages((prev) => {
@@ -189,10 +154,18 @@ export function ConversationPane() {
     }
     setIsStreaming(true)
     setStreamingInStore(true)
+    setStreamPhase(isInitial ? 'thinking' : 'understanding')
     setMessages((prev) => [...prev, { role: 'ai', content: '' }])
 
     await streamChatMessage(sid, sessId, text, {
+      onStatus: (phase) => {
+        setStreamPhase(phase)
+        if (phase === 'thinking') {
+          // keep streaming flag; phase drives status copy
+        }
+      },
       onChunk: (chunk) => {
+        setStreamPhase('thinking')
         setMessages((prev) => {
           const updated = [...prev]
           const last = updated[updated.length - 1]
@@ -202,40 +175,41 @@ export function ConversationPane() {
           return updated
         })
       },
-      onComplete: (_jobId, choices) => {
-        // Keep chat locked until understanding finishes (or timeout).
-        // Choices are attached only after the wait so the user cannot proceed early.
-        void (async () => {
-          if (!isInitial) {
-            setIsProcessingUnderstanding(true)
-            setStreamingInStore(true)
-            setIsStreaming(false)
-            try {
-              await waitForUnderstandingUpdate(sid, sessId, previousFingerprint)
-            } catch {
-              // fail open — unlock below
+      onComplete: (_jobId, choices, meta) => {
+        setIsStreaming(false)
+        setStreamPhase(null)
+        setStreamingInStore(false)
+
+        const hitGate = Boolean(meta?.earlyExitEligible && !meta?.earlyExitDismissed)
+
+        setMessages((prev) => {
+          const updated = [...prev]
+          const last = updated[updated.length - 1]
+          if (last?.role === 'ai') {
+            let content = last.content
+            if (hitGate && !content.trim()) {
+              content =
+                'You\'ve reached a strong understanding checkpoint. Continue discovery or generate your assessment.'
             }
-          } else {
-            setIsStreaming(false)
+            updated[updated.length - 1] = {
+              ...last,
+              content,
+              choices: hitGate ? undefined : choices,
+            }
           }
-          if (choices && choices.length > 0) {
-            setMessages((prev) => {
-              const updated = [...prev]
-              const last = updated[updated.length - 1]
-              if (last?.role === 'ai') {
-                updated[updated.length - 1] = { ...last, choices }
-              }
-              return updated
-            })
-          }
-          setIsProcessingUnderstanding(false)
-          setStreamingInStore(false)
-          pingExchange()
-        })()
+          return updated
+        })
+
+        if (hitGate) {
+          setGateDismissedThisCycle(false)
+          setChoicesUnlocked(false)
+        }
+
+        pingExchange()
       },
       onError: (_message, status, errorCode) => {
         setIsStreaming(false)
-        setIsProcessingUnderstanding(false)
+        setStreamPhase(null)
         setStreamingInStore(false)
         if (status === 404 || (status === 422 && errorCode === 'BUSINESS_RULE')) {
           reset()
@@ -253,6 +227,50 @@ export function ConversationPane() {
       },
     })
   }, [pingExchange, reset, router])
+
+  const handleContinueDiscovery = useCallback(async () => {
+    const sid = startupIdRef.current
+    const sessId = sessionIdRef.current
+    if (!sid || !sessId || chatLocked) return
+
+    setIsContinuing(true)
+    setGateError(null)
+    try {
+      await continueDiscovery(sid, sessId)
+      setGateDismissedThisCycle(true)
+      setChoicesUnlocked(true)
+      pingExchange()
+      await doStream('Continue discovery.')
+    } catch {
+      setGateError('Could not continue discovery. Please try again.')
+      setGateDismissedThisCycle(false)
+    } finally {
+      setIsContinuing(false)
+    }
+  }, [chatLocked, pingExchange, doStream])
+
+  const handleGenerateAssessment = useCallback(async () => {
+    const sid = startupIdRef.current
+    const sessId = sessionIdRef.current
+    if (!sid || !sessId || chatLocked) return
+
+    setGateError(null)
+    try {
+      await requestAssessment(sid, sessId)
+      setIsSessionComplete(true)
+      const result = await generate()
+      if (result === 'complete') router.push('/session-summary')
+    } catch (err) {
+      setGateError(err instanceof Error ? err.message : 'Failed to generate assessment')
+    }
+  }, [chatLocked, generate, router, setIsSessionComplete])
+
+  useEffect(() => {
+    if (!continueDiscoveryPingAt) return
+    if (continueDiscoveryPingAt === continueDiscoveryPingRef.current) return
+    continueDiscoveryPingRef.current = continueDiscoveryPingAt
+    void handleContinueDiscovery()
+  }, [continueDiscoveryPingAt, handleContinueDiscovery])
 
   // Trigger initial AI question when session IDs are ready.
   // Guard with isSessionComplete: if the persisted store has a completed session,
@@ -429,7 +447,7 @@ export function ConversationPane() {
       {/* Input area */}
       <div className="px-[14px] pb-[14px] bg-background shrink-0">
         <AnimatePresence>
-          {chatLocked && (
+          {statusLabel && (
             <motion.div
               initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
@@ -442,9 +460,7 @@ export function ConversationPane() {
                 style={{ animation: 'fs-pulse-dot 1.5s ease-in-out infinite' }}
               />
               <span className="font-mono text-[10px] text-muted tracking-[0.01em]">
-                {isProcessingUnderstanding
-                  ? 'Updating understanding…'
-                  : 'Xenysis is thinking…'}
+                {statusLabel}
               </span>
             </motion.div>
           )}
@@ -482,25 +498,48 @@ export function ConversationPane() {
             </p>
             <button
               type="button"
-              onClick={() => void handleContinueDiscovery()}
-              disabled={isGeneratingChoices}
+              onClick={() => void handleGenerateAssessment()}
+              disabled={chatLocked}
               className="w-full flex items-center justify-center gap-2 rounded-2xl h-11 font-semibold tracking-[-0.01em] transition-all duration-200 disabled:opacity-60"
               style={{
                 fontSize: 13,
-                background: 'rgba(79,250,176,0.12)',
-                color: 'var(--primary)',
-                border: '1px solid rgba(79,250,176,0.35)',
+                background: 'var(--primary)',
+                color: '#0A0A0A',
               }}
             >
-              {isGeneratingChoices ? (
+              {isGeneratingReport ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Generating suggestions…
+                  {stageLabel}
+                </>
+              ) : (
+                'Generate Assessment'
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleContinueDiscovery()}
+              disabled={chatLocked}
+              className="w-full flex items-center justify-center gap-2 rounded-2xl h-10 font-medium tracking-[-0.01em] transition-all duration-200 disabled:opacity-60"
+              style={{
+                fontSize: 12,
+                background: 'transparent',
+                color: 'rgba(255,255,255,0.45)',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+            >
+              {isContinuing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Continuing…
                 </>
               ) : (
                 'Continue Discovery'
               )}
             </button>
+            {gateError && (
+              <p className="font-mono text-[10px] text-red-400 m-0 pl-1">{gateError}</p>
+            )}
           </div>
         ) : (
         <>

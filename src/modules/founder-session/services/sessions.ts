@@ -199,13 +199,29 @@ export async function generateChoices(
 
 // ── SSE chat stream ───────────────────────────────────────────────────────────
 
+export type ChatStreamPhase = 'understanding' | 'planning' | 'thinking'
+
 export interface ChatStreamEvent {
-  type: 'delta' | 'done' | 'error'
-  data: { content?: string; jobId?: string; message?: string; choices?: unknown[] }
+  type: 'delta' | 'done' | 'error' | 'status'
+  data: {
+    content?: string
+    jobId?: string
+    message?: string
+    choices?: unknown[]
+    phase?: ChatStreamPhase
+    earlyExitEligible?: boolean
+    earlyExitDismissed?: boolean
+  }
+}
+
+export interface ChatCompleteMeta {
+  earlyExitEligible?: boolean
+  earlyExitDismissed?: boolean
 }
 
 export type OnChunk = (content: string) => void
-export type OnComplete = (jobId: string, choices?: AnswerChoice[]) => void
+export type OnStatus = (phase: ChatStreamPhase) => void
+export type OnComplete = (jobId: string, choices?: AnswerChoice[], meta?: ChatCompleteMeta) => void
 export type OnError = (message: string, status?: number, errorCode?: string) => void
 
 function parseApiErrorBody(body: unknown): { message?: string; code?: string } {
@@ -222,9 +238,17 @@ export async function streamChatMessage(
   startupId: string,
   sessionId: string,
   message: string,
-  callbacks: { onChunk: OnChunk; onComplete: OnComplete; onError: OnError },
+  callbacks: {
+    onChunk: OnChunk
+    onComplete: OnComplete
+    onError: OnError
+    onStatus?: OnStatus
+  },
 ): Promise<void> {
   if (!process.env.NEXT_PUBLIC_API_URL) {
+    callbacks.onStatus?.('understanding')
+    await new Promise((r) => setTimeout(r, 200))
+    callbacks.onStatus?.('thinking')
     const mockQuestion =
       'Who is your primary customer — and what triggers them to look for a solution like yours?'
     const mockChoices: AnswerChoice[] = [
@@ -246,7 +270,10 @@ export async function streamChatMessage(
       await new Promise((r) => setTimeout(r, 60))
       callbacks.onChunk(word + ' ')
     }
-    callbacks.onComplete('mock-job-id', mockChoices)
+    callbacks.onComplete('mock-job-id', mockChoices, {
+      earlyExitEligible: false,
+      earlyExitDismissed: false,
+    })
     return
   }
 
@@ -256,14 +283,19 @@ export async function streamChatMessage(
   try {
     await apiPostSSE<{ message: string }>(path, { message }, (raw) => {
       const event = raw as ChatStreamEvent
-      if (event.type === 'delta' && event.data?.content) {
+      if (event.type === 'status' && event.data?.phase) {
+        callbacks.onStatus?.(event.data.phase)
+      } else if (event.type === 'delta' && event.data?.content) {
         callbacks.onChunk(event.data.content)
       } else if (event.type === 'done') {
         settled = true
         const choices = Array.isArray(event.data?.choices) && event.data.choices.length > 0
           ? normalizeAnswerChoices(event.data.choices)
           : undefined
-        callbacks.onComplete(event.data?.jobId ?? 'unknown-job', choices)
+        callbacks.onComplete(event.data?.jobId ?? 'unknown-job', choices, {
+          earlyExitEligible: Boolean(event.data?.earlyExitEligible),
+          earlyExitDismissed: Boolean(event.data?.earlyExitDismissed),
+        })
       } else if (event.type === 'error' && event.data?.message) {
         settled = true
         callbacks.onError(event.data.message)
